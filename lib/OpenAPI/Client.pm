@@ -9,6 +9,8 @@ use Mojo::Util;
 
 use constant DEBUG => $ENV{MOJO_OPENAPI_DEBUG} || 0;
 
+our $VERSION = '0.01';
+
 my $BASE = __PACKAGE__;
 
 has base_url => sub {

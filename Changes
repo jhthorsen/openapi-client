@@ -1,4 +1,6 @@
 Revision history for perl distribution OpenAPI-Client
 
-0.01 Not Released
- - Started project
+0.01 2017-08-18T19:30:32+0200
+ - Converted Swagger2::Client to OpenAPI::Client
+ - Marked as EXPERIMENTAL
+
