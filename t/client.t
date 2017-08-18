@@ -1,74 +1,109 @@
-use t::Api;
-use Swagger2::Client;
+use Mojo::Base -strict;
+use OpenAPI::Client;
 use Test::More;
+use Mojo::JSON 'true';
 
 use Mojolicious::Lite;
 app->log->level('error') unless $ENV{HARNESS_IS_VERBOSE};
-plugin Swagger2 => {url => 't/data/petstore.json'};
 
-my $client = Swagger2::Client->generate('t/data/petstore.json');
+my $i = 0;
+get '/pets/:type' => sub {
+  $i++;
+  my $c = shift->openapi->valid_input or return;
+  return $c->render(openapi => [{type => $c->param('type')}]);
+  },
+  'listPets';
+
+post '/pets' => sub {
+  my $c = shift->openapi->valid_input or return;
+  my $res = $c->req->body_params->to_hash;
+  $res->{dummy} = true if $c->req->headers->header('x-dummy');
+  return $c->render(openapi => $res);
+  },
+  'addPet';
+
+plugin OpenAPI => {url => 'data://main/test.json'};
+
+my $client = OpenAPI::Client->new('data://main/test.json');
 my $ua     = app->ua;
-my $err;
+my ($obj, $tx);
 
-isa_ok($client->base_url, 'Mojo::URL');
-isa_ok($client->ua,       'Mojo::UserAgent');
-isa_ok($client->_swagger, 'Swagger2');
-can_ok($client, qw( list_pets listPets ));
+is +ref($client), 'OpenAPI::Client::main_test_json', 'generated class';
+isa_ok($client, 'OpenAPI::Client');
+can_ok($client, 'addPet');
 
-is $client->base_url, 'http://petstore.swagger.wordnik.com/api', 'base_url';
-$client->ua($ua);
+is $client->base_url, 'http://api.example.com/v1', 'base_url';
 
-# sync
-$client->base_url->host($ua->server->url->host);
-$client->base_url->port($ua->server->url->port);
+$client->local_app(app);
 
-$t::Api::RES = [{id => 123, name => "kit-cat"}];
-my $res = $client->list_pets;
-is_deeply($res->json, [{id => 123, name => "kit-cat"}], 'list_pets ok');
+# Sync testing
+$tx = $client->listPets;
+is $tx->res->code, 400, 'sync invalid listPets';
+is $tx->error->{message}, 'Invalid input', 'sync invalid message';
+is $i, 0, 'invalid on client side';
 
-eval { $client->list_pets({limit => 'foo'}) };
-like $@, qr{^Invalid input: /limit: Expected integer - got string}, 'list_pets invalid input';
+$tx = $client->listPets({type => 'dog', p => 12});
+is $tx->res->code, 200, 'sync listPets';
+is $tx->req->url->query->param('p'), 12, 'sync listPets p=12';
+is $i, 1, 'one request';
 
-$t::Api::RES = [{id => 'foo', name => "kit-cat"}];
-eval { $client->list_pets };
-like $@, qr{^Internal Server Error:.*"path":"\W+0\W+id"}, 'list_pets invalid response';
+$tx = $client->addPet({type => 'dog', name => 'Pluto', 'x-dummy' => true});
+is_deeply $tx->res->json, {dummy => true, type => 'dog', name => 'Pluto'}, 'sync addPet';
 
-# sync post
-$t::Api::RES = {id => 123, name => 'kit-cat'};
-eval { $client->add_pet };
-like $@, qr{^Invalid input: /data: Expected object - got null}, 'add_pet invalid input';
-
-$res = $client->add_pet({data => {name => 'm4'}});
-is $res->json->{name}, 'm4', 'add_pet';
-
-# async
-$t::Api::RES = [{id => 123, name => "kit-cat"}];
+# Async testing
 $client->base_url->host($ua->server->nb_url->host);
 $client->base_url->port($ua->server->nb_url->port);
 
-$t::Api::RES = [{id => 123, name => "kit-cat"}];
-$client->list_pets(sub { (my $client, $err, $res) = @_; Mojo::IOLoop->stop });
+$i = 0;
+is $client->listPets(sub { ($obj, $tx) = @_; Mojo::IOLoop->stop }), $client, 'async request';
 Mojo::IOLoop->start;
-is_deeply($res->json, [{id => 123, name => "kit-cat"}], 'list_pets async ok');
-
-$client->list_pets({limit => 'foo'}, sub { (my $client, $err, $res) = @_ });
-is_deeply($err, ['/limit: Expected integer - got string.'], 'list_pets async invalid input');
-is $res, undef, 'list_pets async invalid input';
-
-$t::Api::RES = [{id => 'foo', name => "kit-cat"}];
-$client->list_pets(sub { (my $client, $err, $res) = @_; Mojo::IOLoop->stop });
-Mojo::IOLoop->start;
-isa_ok($res, 'Mojo::Message::Response');
-is $res->json->{errors}[0]{message}, 'Expected integer - got string.', 'errors';
-is_deeply($err, 'Internal Server Error', 'list_pets async invalid output');
-
-# with path
-$t::Api::RES = {id => 123, name => "kit-cat"};
-$client->show_pet_by_id(sub { (my $client, $err, $res) = @_; Mojo::IOLoop->stop });
-is_deeply($err, ['/petId: Expected integer - got null.'], 'show_pet_by_id async invalid input');
-
-$client->show_pet_by_id({petId => 0}, sub { (my $client, $err, $res) = @_; Mojo::IOLoop->stop });
-Mojo::IOLoop->start;
-is_deeply($res->json, {id => 0, name => "kit-cat"}, 'list_pets async ok');
+is $obj, $client, 'got client in callback';
+is $tx->res->code, 400, 'invalid listPets';
+is $tx->error->{message}, 'Invalid input', 'sync invalid message';
+is $i, 0, 'invalid on client side';
 
 done_testing;
+
+__DATA__
+@@ test.json
+{
+  "swagger": "2.0",
+  "info": { "version": "0.8", "title": "Test client spec" },
+  "schemes": [ "http" ],
+  "host": "api.example.com",
+  "basePath": "/v1",
+  "paths": {
+    "/pets": {
+      "post": {
+        "operationId": "addPet",
+        "parameters": [
+          { "in": "header", "name": "x-dummy", "type": "boolean" },
+          { "in": "formData", "name": "name", "type": "string" },
+          { "in": "formData", "name": "type", "type": "string" }
+        ],
+        "responses": {
+          "200": {
+            "description": "pet response",
+            "schema": { "type": "object" }
+          }
+        }
+      }
+    },
+    "/pets/{type}": {
+      "get": {
+        "operationId": "listPets",
+        "x-mojo-to": "listPets",
+        "parameters": [
+          { "in": "path", "name": "type", "type": "string", "required": true },
+          { "in": "query", "name": "p", "type": "integer" }
+        ],
+        "responses": {
+          "200": {
+            "description": "pet response",
+            "schema": { "type": "array" }
+          }
+        }
+      }
+    }
+  }
+}

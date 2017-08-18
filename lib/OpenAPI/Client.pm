@@ -1,180 +1,154 @@
-package Swagger2::Client;
+package OpenAPI::Client;
 use Mojo::Base -base;
-use Mojo::JSON;
+
+use Carp ();
+use JSON::Validator::OpenAPI::Mojolicious;
+use Mojo::JSON 'encode_json';
 use Mojo::UserAgent;
 use Mojo::Util;
-use Carp ();
-use Swagger2;
-use Swagger2::SchemaValidator;
 
-use constant DEBUG => $ENV{SWAGGER2_DEBUG} || 0;
+use constant DEBUG => $ENV{MOJO_OPENAPI_DEBUG} || 0;
 
-has base_url   => sub { Mojo::URL->new(shift->_swagger->base_url) };
-has ua         => sub { Mojo::UserAgent->new };
-has _validator => sub { Swagger2::SchemaValidator->new; };
+my $BASE = __PACKAGE__;
 
-sub generate {
-  my $class = shift;
-  my ($swagger, $url) = _swagger_url(shift);
-  my $paths = $swagger->api_spec->get('/paths') || {};
-  my $generated;
+has base_url => sub {
+  my $self   = shift;
+  my $schema = $self->_validator->schema;
 
-  $generated
-    = 40 < length $url ? Mojo::Util::md5_sum($url) : $url;    # 40 is a bit random: not too long
-  $generated =~ s!\W!_!g;
-  $generated = "$class\::$generated";
+  return Mojo::URL->new->host($schema->get('/host'))->path($schema->get('/basePath'))
+    ->scheme($schema->get('/schemes')->[0] || 'http');
+};
 
-  return $generated->new if $generated->isa($class);          # already generated
-  _init_package($generated, $class);
-  Mojo::Util::monkey_patch($generated, _swagger => sub {$swagger});
+has ua => sub { Mojo::UserAgent->new };
+
+sub local_app {
+  my ($self, $app) = @_;
+  my $ua = $self->ua;
+
+  $ua->ioloop(Mojo::IOLoop->singleton);
+  $ua->server->app($app);
+  $self->base_url->host($ua->server->url->host);
+  $self->base_url->port($ua->server->url->port);
+
+  return $self;
+}
+
+sub new {
+  my ($class, $url) = (shift, shift);
+  my $attrs = @_ == 1 ? shift : {@_};
+  my $validator = JSON::Validator::OpenAPI::Mojolicious->new;
+
+  $class = $class->_url_to_class($url);
+  _generate_class($class, $validator->load_and_validate_schema($url, $attrs)) unless $class->isa($BASE);
+
+  my $self = bless $attrs, $class;
+  $self->ua->transactor->name('Mojo-OpenAPI (Perl)');
+
+  return $self;
+}
+
+sub _generate_class {
+  my ($class, $validator) = @_;
+  my $paths = $validator->schema->get('/paths') || {};
+
+  eval <<"HERE" or Carp::confess("package $class: $@");
+package $class;
+use Mojo::Base '$BASE';
+1;
+HERE
+
+  Mojo::Util::monkey_patch($class, _validator => sub {$validator});
 
   for my $path (keys %$paths) {
     for my $http_method (keys %{$paths->{$path}}) {
       my $op_spec = $paths->{$path}{$http_method};
-      my $method  = $op_spec->{operationId} || $path;
-      my $code    = $generated->_generate_method(lc $http_method, $path, $op_spec);
+      my $method  = $op_spec->{operationId} or next;
+      my $code    = _generate_method(lc $http_method, $path, $op_spec);
 
       $method =~ s![^\w]!_!g;
-      warn "[$generated] Add method $generated\::$method()\n" if DEBUG;
-      Mojo::Util::monkey_patch($generated, $method => $code);
-
-      my $snake = Mojo::Util::decamelize(ucfirst $method);
-      warn "[$generated] Add method $generated\::$snake()\n" if DEBUG;
-      Mojo::Util::monkey_patch($generated, $snake => $code);
+      warn "[$class] Add method $class\::$method()\n" if DEBUG;
+      Mojo::Util::monkey_patch($class, $method => $code);
     }
   }
-
-  return $generated->new;
 }
 
 sub _generate_method {
-  my ($class, $http_method, $path, $op_spec) = @_;
-  my @path = grep {length} split '/', $path;
+  my ($http_method, $path, $op_spec) = @_;
+  my @path_spec = grep {length} split '/', $path;
 
   return sub {
     my $cb   = ref $_[-1] eq 'CODE' ? pop : undef;
     my $self = shift;
-    my $args = shift || {};
-    my $req  = [$self->base_url->clone];
-    my @e    = $self->_validate_request($args, $op_spec, $req);
+    my $tx   = $self->_generate_tx($http_method, \@path_spec, $op_spec, @_);
 
-    if (@e) {
-      unless ($cb) {
-        return _invalid_input_res(\@e) if $self->return_on_error;
-        Carp::croak('Invalid input: ' . join ' ', @e);
+    if ($tx->error) {
+      return $tx unless $cb;
+      Mojo::IOLoop->next_tick(sub { $self->$cb($tx) });
+      return $self;
+    }
+
+    return $self->ua->start($tx) unless $cb;
+    return $self->tap(
+      sub {
+        $self->ua->start($tx, sub { $self->$cb($_[1]) });
       }
-      $self->$cb(\@e, undef);
-      return $self;
-    }
-
-    push @{$req->[0]->path->parts},
-      map { local $_ = $_; s,\{(\w+)\},{$args->{$1}//''},ge; $_; } @path;
-
-    if ($cb) {
-      Scalar::Util::weaken($self);
-      $self->ua->$http_method(
-        @$req,
-        sub {
-          my ($ua, $tx) = @_;
-          return $self->$cb('', $tx->res) unless my $err = $tx->error;
-          return $self->$cb($err->{message}, $tx->res);
-        }
-      );
-      return $self;
-    }
-    else {
-      my $tx = $self->ua->$http_method(@$req);
-      return $tx->res if !$tx->error or $self->return_on_error;
-      Carp::croak(join ': ', grep {defined} $tx->error->{message}, $tx->res->body);
-    }
+    );
   };
 }
 
-sub _init_package {
-  my ($package, $base) = @_;
-  eval <<"HERE" or die "package $package: $@";
-package $package;
-use Mojo::Base '$base';
-has return_on_error => 0;
-1;
-HERE
-}
+sub _generate_tx {
+  my ($self, $http_method, $path_spec, $op_spec, $params) = @_;
+  my $v   = $self->_validator;
+  my $url = $self->base_url->clone;
+  my (%headers, %req, @body, @errors);
 
-sub _invalid_input_res {
-  my $res = Mojo::Message::Response->new;
-  $res->headers->content_type('application/json');
-  $res->body(Mojo::JSON::encode_json({errors => $_[0]}));
-  $res->code(400)->message($res->default_message);
-  $res->error({message => 'Invalid input', code => 400});
-}
-
-sub _swagger_url {
-  if (UNIVERSAL::isa($_[0], 'Swagger2')) {
-    my $swagger = shift->load->expand;
-    return ($swagger, $swagger->url);
-  }
-  else {
-    my $url = shift;
-    return (Swagger2->new->load($url)->expand, $url);
-  }
-}
-
-sub _validate_request {
-  my ($self, $args, $op_spec, $req) = @_;
-  my $query = $req->[0]->query;
-  my (%data, $body, @e);
+  push @{$url->path}, map { local $_ = $_; s,\{(\w+)\},{$params->{$1}//''},ge; $_ } @$path_spec;
 
   for my $p (@{$op_spec->{parameters} || []}) {
-    my ($in, $name, $type) = @$p{qw( in name type )};
-    my $value = exists $args->{$name} ? $args->{$name} : $p->{default};
+    my ($in, $name, $type) = @$p{qw(in name type)};
+    my $val = $params->{$name};
+    my @e = (defined $val or $p->{required})
+      ? $v->validate({$name => $val},
+      {type => 'object', required => $p->{required} ? [$name] : [], properties => {$name => $p}})
+      : ();
 
-    if (defined $value or Swagger2::_is_true($p->{required})) {
-      $type ||= 'object';
-
-      if (defined $value) {
-        $value += 0 if $type =~ /^(?:integer|number)/ and $value =~ /^\d/;
-        $value = ($value eq 'false' or !$value) ? Mojo::JSON->false : Mojo::JSON->true
-          if $type eq 'boolean';
-      }
-
-      if ($in eq 'body') {
-        warn "[Swagger2::Client] Validate $in\n" if DEBUG;
-        push @e,
-          map { $_->{path} = $_->{path} eq "/" ? "/$name" : "/$name$_->{path}"; $_; }
-          $self->_validator->validate($value, $p->{schema});
-      }
-      elsif ($in eq 'formData' && $type eq 'file') {
-        # if this is a file parameter and there is data then do nothing
-        # as file data cannot be validated
-        warn "[Swagger2::Client] Validate $in $name (Skipping file)\n" if DEBUG;
-      }
-      else {
-        warn "[Swagger2::Client] Validate $in $name=$value\n" if DEBUG;
-        push @e, $self->_validator->validate({$name => $value}, {properties => {$name => $p}});
-      }
-    }
-
-    if (not defined $value) {
+    if (@e) {
+      warn "[OpenAPI] Invalid '$name' in '$in': @e\n" if DEBUG;
+      push @errors, @e;
       next;
     }
-    elsif ($in eq 'query') {
-      $query->param($name => $value);
+    if (!defined $val) {
+      next;
     }
-    elsif ($in eq 'header') {
-      $req->[1]{$name} = $value;
-    }
-    elsif ($in eq 'body') {
-      $data{json} = $value;
-    }
-    elsif ($in eq 'formData') {
-      $data{form}{$name} = $value;
-    }
+
+    $url->query->param($name => $val) if $in eq 'query';
+    $headers{$name} = $val if $in eq 'header';
+    $req{form}{$name} = $val if $in eq 'formData';
+    @body = (ref $val ? encode_json $val : $val) if $in eq 'body';
   }
 
-  push @$req, map { ($_ => $data{$_}) } keys %data;
-  push @$req, $body if defined $body;
+  # Valid input
+  warn "[OpenAPI] Input validation for '$url': @{@errors ? \@errors : ['Success']}\n" if DEBUG;
+  return $self->ua->build_tx($http_method, $url, \%headers, %req, @body) unless @errors;
 
-  return @e;
+  # Invalid input
+  my $tx = Mojo::Transaction::HTTP->new;
+  $tx->req->url($url);
+  $tx->res->headers->content_type('application/json');
+  $tx->res->body(encode_json {errors => \@errors});
+  $tx->res->code(400)->message($tx->res->default_message);
+  $tx->res->error({message => 'Invalid input', code => 400});
+  return $tx;
+}
+
+sub _url_to_class {
+  my ($self, $package) = @_;
+
+  $package =~ s!^\w+?://!!;
+  $package =~ s!\W!_!g;
+  $package = Mojo::Util::md5_sum($package) if length $package > 110;    # 110 is a bit random, but it cannot be too long
+
+  return sprintf '%s::%s', __PACKAGE__, $package;
 }
 
 1;
@@ -183,26 +157,32 @@ sub _validate_request {
 
 =head1 NAME
 
-Swagger2::Client - A client for talking to a Swagger powered server
+OpenAPI::Client - A client for talking to an Open API powered server
 
 =head1 DESCRIPTION
 
-L<Swagger2::Client> is a base class for autogenerated classes that can
-talk to a server using a swagger specification.
+L<OpenAPI::Client> is a class for generating classes that can talk to an Open
+API server. This is done by generating a custom class, based on a Open API
+specification, with methods that transform parameters into a HTTP request.
 
-Note that this is a DRAFT, so there will probably be bugs and changes.
+The generated class will perform input validation, so invalid data won't be
+sent to the server.
+
+Not that this implementation is currently EXPERIMENTAL! Feedback is
+appreciated.
 
 =head1 SYNOPSIS
 
-=head2 Swagger specification
+=head2 Open API specification
 
-The input L</url> given to L</generate> need to point to a valid
-L<swagger|https://github.com/swagger-api/swagger-spec/blob/master/versions/2.0.md>
-document.
+The input C<url> given to L</new> need to point to a valid OpenAPI document, in
+either JSON or YAML format. Example:
 
   ---
   swagger: 2.0
+  host: api.example.com
   basePath: /api
+  schemes: [ "http" ]
   paths:
     /foo:
       get:
@@ -214,41 +194,34 @@ document.
         responses:
           200: { ... }
 
+C<host>, C<basePath> and the first item in C<schemes> will be used to construct
+L</base_url>. This can be altered at any time, if you need to send data to a
+custom URL.
+
 =head2 Client
 
-The swagger specification will the be turned into a sub class of
-L<Swagger2::Client>, where the "parameters" rules are used to do input
-validation.
+The OpenAPI API specification will be used to generate a sub-class of
+L<OpenAPI::Client> where the "operationId", inside of each path definition, is
+used to generate methods:
 
-  use Swagger2::Client;
-  $ua = Swagger2::Client->generate("file:///path/to/api.json");
+  use OpenAPI::Client;
+  $client = OpenAPI::Client->new("file:///path/to/api.json");
 
-  # blocking (will croak() on error)
-  $pets = $ua->listPets;
+  # Blocking
+  $tx = $client->listPets;
 
-  # blocking (will not croak() on error)
-  $ua->return_on_error(1);
-  $pets = $ua->listPets;
+  # Non-blocking
+  $client = $client->listPets(sub { my ($client, $tx) = @_; });
 
-  # non-blocking
-  $ua = $ua->listPets(sub { my ($ua, $err, $pets) = @_; });
-
-  # with arguments, where the key map to the "parameters" name
-  $pets = $ua->listPets({limit => 10});
-
-The method name added will both be the original C<operationId>, but a "snake
-case" version will also be added. Example:
-
-  "operationId": "listPets"
-    => $client->listPets()
-    => $client->list_pets()
+  # With parameters
+  $tx = $client->listPets({limit => 10});
 
 =head2 Customization
 
 If you want to request a different server than what is specified in
-the swagger document:
+the Open API document:
 
-  $ua->base_url->host("other.server.com");
+  $client->base_url->host("other.server.com");
 
 =head1 ATTRIBUTES
 
@@ -256,7 +229,8 @@ the swagger document:
 
   $base_url = $self->base_url;
 
-Returns a L<Mojo::URL> object with the base URL to the API.
+Returns a L<Mojo::URL> object with the base URL to the API. The default value
+comes from C<schemes>, C<basePath> and C<host> in the Open API specification.
 
 =head2 ua
 
@@ -266,20 +240,28 @@ Returns a L<Mojo::UserAgent> object which is used to execute requests.
 
 =head1 METHODS
 
-=head2 generate
+=head2 local_app
 
-  $client = Swagger2::Client->generate(Swagger2->new($specification_url));
-  $client = Swagger2::Client->generate($specification_url);
+  $client = $client->local_app(Mojolicious->new);
 
-Returns an object of a generated class, with the rules from the
-C<$specification_url>.
+This method will modify L</ua> to run requests against the L<Mojolicious> or
+L<Mojolicious::Lite> application given as argument. (Useful for testing)
+
+=head2 new
+
+  $client = OpenAPI::Client->new($specification, %attrs);
+  $client = OpenAPI::Client->new($specification, \%attrs);
+
+Returns an object of a generated class, with methods generated from the Open
+API specification located at C<$specification>. See L<JSON::Validator/schema>
+for valid versions of C<$specification>.
 
 Note that the class is cached by perl, so loading a new specification from the
 same URL will not generate a new class.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2014-2015, Jan Henning Thorsen
+Copyright (C) 2017, Jan Henning Thorsen
 
 This program is free software, you can redistribute it and/or modify it under
 the terms of the Artistic License version 2.0.
