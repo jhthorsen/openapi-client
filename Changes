@@ -1,6 +1,6 @@
 Revision history for perl distribution OpenAPI-Client
 
-0.02 Not Released
+0.02 2017-08-19T10:59:07+0200
  - Fix validation of body parameters
 
 0.01 2017-08-18T19:30:32+0200
