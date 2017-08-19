@@ -108,25 +108,35 @@ sub _generate_tx {
 
   for my $p (@{$op_spec->{parameters} || []}) {
     my ($in, $name, $type) = @$p{qw(in name type)};
-    my $val = $params->{$name};
-    my @e = (defined $val or $p->{required})
-      ? $v->validate({$name => $val},
-      {type => 'object', required => $p->{required} ? [$name] : [], properties => {$name => $p}})
-      : ();
+    my @e;
+
+    if (exists $params->{$name} or $p->{required}) {
+      @e = $v->validate($params,
+        {type => 'object', required => $p->{required} ? [$name] : [], properties => {$name => $p->{schema} || $p}});
+    }
 
     if (@e) {
       warn "[OpenAPI] Invalid '$name' in '$in': @e\n" if DEBUG;
       push @errors, @e;
-      next;
     }
-    if (!defined $val) {
-      next;
+    elsif (!exists $params->{$name} or $in eq 'path') {
+      1;
     }
-
-    $url->query->param($name => $val) if $in eq 'query';
-    $headers{$name} = $val if $in eq 'header';
-    $req{form}{$name} = $val if $in eq 'formData';
-    @body = (ref $val ? encode_json $val : $val) if $in eq 'body';
+    elsif ($in eq 'query') {
+      $url->query->param($name => $params->{$name}) if $in eq 'query';
+    }
+    elsif ($in eq 'header') {
+      $headers{$name} = $params->{$name} if $in eq 'header';
+    }
+    elsif ($in eq 'formData') {
+      $req{form}{$name} = $params->{$name};
+    }
+    elsif ($in eq 'body') {
+      @body = (ref $params->{$name} ? encode_json $params->{$name} : $params->{$name});
+    }
+    else {
+      warn "[OpenAPI] Unknown 'in' '$in' for parameter '$name'";
+    }
   }
 
   # Valid input
