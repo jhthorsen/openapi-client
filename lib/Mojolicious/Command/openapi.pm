@@ -20,18 +20,22 @@ sub run {
     'S|response-size=i'      => sub { $ua{max_response_size}  = $_[1] },
     'v|verbose'              => \my $verbose;
 
-  my $specification = shift @args or die $self->usage;
-  my $op            = shift @args;
-  my $selector      = shift @args // '';
+  my @client_args = (shift @args);
+  my $op          = shift @args;
+  my $selector    = shift @args // '';
 
-  unless (-t STDIN) {
+  die $self->usage unless $client_args[0];
+
+  if (!-t STDIN) {
     vec(my $r, fileno(STDIN), 1) = 1;
     select($r, undef, undef, 0);
     $content = join '', <STDIN>;
   }
 
-  my $client = OpenAPI::Client->new($specification, app => $self->app);
-  return _say("$specification is valid.") unless $op;
+  push @client_args, app => $self->app if $client_args[0] =~ m!^/! and !-e $client_args[0];
+  my $client = OpenAPI::Client->new(@client_args);
+  return _say("$client_args[0] is valid.") unless $op;
+  die qq(Unknown operationId "$op".\n) unless $client->can($op);
 
   $client->ua->proxy->detect unless $ENV{OPENAPI_NO_PROXY};
   $client->ua->$_($ua{$_}) for keys %ua;
@@ -43,7 +47,6 @@ sub run {
     }
   );
 
-  die qq(Unknown operationId "$op".\n) unless $client->can($op);
   my $tx = $client->$op(\%parameters, defined $content ? (body => decode_json $content) : ());
   if ($tx->error and $tx->error->{message} eq 'Invalid input') {
     _warn(_header($tx->req), _header($tx->res)) if $verbose;

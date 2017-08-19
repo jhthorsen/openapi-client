@@ -1,7 +1,7 @@
 use Mojo::Base -strict;
+use Mojo::JSON 'true';
 use OpenAPI::Client;
 use Test::More;
-use Mojo::JSON 'true';
 
 use Mojolicious::Lite;
 app->log->level('error') unless $ENV{HARNESS_IS_VERBOSE};

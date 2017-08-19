@@ -1,6 +1,5 @@
 use Mojo::Base -strict;
 use Mojo::File 'path';
-use Test::Mojo;
 use Test::More;
 use Mojolicious::Command::openapi;
 

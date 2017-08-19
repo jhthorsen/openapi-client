@@ -1,5 +1,8 @@
 Revision history for perl distribution OpenAPI-Client
 
+0.04 Not Released
+ - Fix "mojo openapi" against online resources
+
 0.03 2017-08-19T22:39:33+0200
  - Add "mojo openapi" command
  - Add support for running against local app

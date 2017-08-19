@@ -2,7 +2,6 @@ use Mojo::Base -strict;
 use Mojo::File 'path';
 use Mojolicious::Command::openapi;
 use Mojolicious;
-use Test::Mojo;
 use Test::More;
 
 my @said;
