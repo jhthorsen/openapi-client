@@ -1,6 +1,6 @@
 Revision history for perl distribution OpenAPI-Client
 
-0.04 Not Released
+0.04 2017-08-19T23:05:26+0200
  - Fix "mojo openapi" against online resources
 
 0.03 2017-08-19T22:39:33+0200
