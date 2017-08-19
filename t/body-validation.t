@@ -16,7 +16,7 @@ post '/user/login' => sub {
 
 plugin OpenAPI => {url => 'data://main/test.json'};
 
-my $client = OpenAPI::Client->new('data://main/test.json')->local_app(app);
+my $client = OpenAPI::Client->new('data://main/test.json', app => app);
 my $tx;
 
 $tx = $client->loginUser;

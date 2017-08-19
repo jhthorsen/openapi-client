@@ -1,5 +1,10 @@
 Revision history for perl distribution OpenAPI-Client
 
+0.03 Not Released
+ - Add "mojo openapi" command
+ - Add support for running against local app
+ - Removed local_app() method
+
 0.02 2017-08-19T10:59:07+0200
  - Fix validation of body parameters
 

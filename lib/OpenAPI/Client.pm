@@ -23,28 +23,22 @@ has base_url => sub {
 
 has ua => sub { Mojo::UserAgent->new };
 
-sub local_app {
-  my ($self, $app) = @_;
-  my $ua = $self->ua;
-
-  $ua->ioloop(Mojo::IOLoop->singleton);
-  $ua->server->app($app);
-  $self->base_url->host($ua->server->url->host);
-  $self->base_url->port($ua->server->url->port);
-
-  return $self;
-}
-
 sub new {
-  my ($class, $url) = (shift, shift);
+  my ($class, $specification) = (shift, shift);
   my $attrs = @_ == 1 ? shift : {@_};
   my $validator = JSON::Validator::OpenAPI::Mojolicious->new;
 
-  $class = $class->_url_to_class($url);
-  _generate_class($class, $validator->load_and_validate_schema($url, $attrs)) unless $class->isa($BASE);
+  $validator->ua->server->app($attrs->{app}) if $attrs->{app};
+  $class = $class->_url_to_class($specification);
+  _generate_class($class, $validator->load_and_validate_schema($specification, $attrs)) unless $class->isa($BASE);
 
   my $self = bless $attrs, $class;
-  $self->ua->transactor->name('Mojo-OpenAPI (Perl)');
+  $self->ua->transactor->name('Mojo-OpenAPI (Perl)') unless $self->{ua};
+
+  if (my $app = delete $self->{app}) {
+    $self->base_url->host(undef)->scheme(undef)->port(undef);
+    $self->ua->server->app($app);
+  }
 
   return $self;
 }
@@ -99,7 +93,7 @@ sub _generate_method {
 }
 
 sub _generate_tx {
-  my ($self, $http_method, $path_spec, $op_spec, $params) = @_;
+  my ($self, $http_method, $path_spec, $op_spec, $params, %args) = @_;
   my $v   = $self->_validator;
   my $url = $self->base_url->clone;
   my (%headers, %req, @body, @errors);
@@ -109,6 +103,10 @@ sub _generate_tx {
   for my $p (@{$op_spec->{parameters} || []}) {
     my ($in, $name, $type) = @$p{qw(in name type)};
     my @e;
+
+    if ($in eq 'body' and exists $args{body}) {
+      $params->{$name} = $args{body};
+    }
 
     if (exists $params->{$name} or $p->{required}) {
       @e = $v->validate($params,
@@ -261,8 +259,9 @@ L<Mojolicious::Lite> application given as argument. (Useful for testing)
 
 =head2 new
 
-  $client = OpenAPI::Client->new($specification, %attrs);
   $client = OpenAPI::Client->new($specification, \%attrs);
+  $client = OpenAPI::Client->new($specification, %attrs);
+  $client = OpenAPI::Client->new($specification, app => Mojolicious->new);
 
 Returns an object of a generated class, with methods generated from the Open
 API specification located at C<$specification>. See L<JSON::Validator/schema>
@@ -270,6 +269,9 @@ for valid versions of C<$specification>.
 
 Note that the class is cached by perl, so loading a new specification from the
 same URL will not generate a new class.
+
+Specifying an C<app> is useful when running against a local L<Mojolicious>
+instance.
 
 =head1 COPYRIGHT AND LICENSE
 

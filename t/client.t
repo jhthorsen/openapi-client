@@ -24,17 +24,14 @@ post '/pets' => sub {
 
 plugin OpenAPI => {url => 'data://main/test.json'};
 
-my $client = OpenAPI::Client->new('data://main/test.json');
-my $ua     = app->ua;
+is(OpenAPI::Client->new('data://main/test.json')->base_url, 'http://api.example.com/v1', 'base_url');
+
+my $client = OpenAPI::Client->new('data://main/test.json', app => app);
 my ($obj, $tx);
 
 is +ref($client), 'OpenAPI::Client::main_test_json', 'generated class';
 isa_ok($client, 'OpenAPI::Client');
 can_ok($client, 'addPet');
-
-is $client->base_url, 'http://api.example.com/v1', 'base_url';
-
-$client->local_app(app);
 
 # Sync testing
 $tx = $client->listPets;
@@ -49,10 +46,6 @@ is $i, 1, 'one request';
 
 $tx = $client->addPet({type => 'dog', name => 'Pluto', 'x-dummy' => true});
 is_deeply $tx->res->json, {dummy => true, type => 'dog', name => 'Pluto'}, 'sync addPet';
-
-# Async testing
-$client->base_url->host($ua->server->nb_url->host);
-$client->base_url->port($ua->server->nb_url->port);
 
 $i = 0;
 is $client->listPets(sub { ($obj, $tx) = @_; Mojo::IOLoop->stop }), $client, 'async request';

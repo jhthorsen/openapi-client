@@ -1,0 +1,35 @@
+use Mojo::Base -strict;
+use Mojo::File 'path';
+use Test::Mojo;
+use Test::More;
+use Mojolicious::Command::openapi;
+
+my $cmd = Mojolicious::Command::openapi->new;
+my @said;
+
+Mojo::Util::monkey_patch('Mojolicious::Command::openapi', _say  => sub { push @said, @_ });
+Mojo::Util::monkey_patch('Mojolicious::Command::openapi', _warn => sub { push @said, @_ });
+
+like $cmd->description, qr{Perform Open API requests}, 'description';
+like $cmd->usage, qr{APPLICATION openapi SPECIFICATION OPERATION}, 'usage';
+
+eval { $cmd->run };
+like $@, qr{APPLICATION openapi SPECIFICATION OPERATION}, 'no arguments';
+
+@said = ();
+$cmd->run(path('t', 'spec.json'));
+like "@said", qr{spec\.json is valid}, 'validated spec from command line';
+
+@said = ();
+$cmd->run(path('t', 'spec.json'), 'listPets');
+like "@said", qr{Missing property}, 'missing property';
+
+@said = ();
+$cmd->run(path('t', 'spec.json'), 'listPets', '-v');
+like "@said", qr{400 Bad Request}, 'verbose';
+
+@said = ();
+$cmd->run(path('t', 'spec.json'), 'listPets', '/errors/0/path');
+like "@said", qr{^/type}, 'json path';
+
+done_testing;
