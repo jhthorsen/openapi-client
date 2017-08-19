@@ -187,8 +187,8 @@ appreciated.
 
 =head2 Open API specification
 
-The input C<url> given to L</new> need to point to a valid OpenAPI document, in
-either JSON or YAML format. Example:
+The specification given to L</new> need to point to a valid OpenAPI document,
+in either JSON or YAML format. Example:
 
   ---
   swagger: 2.0
@@ -208,7 +208,7 @@ either JSON or YAML format. Example:
 
 C<host>, C<basePath> and the first item in C<schemes> will be used to construct
 L</base_url>. This can be altered at any time, if you need to send data to a
-custom URL.
+custom endpoint.
 
 =head2 Client
 
