@@ -15,7 +15,7 @@ my $BASE = __PACKAGE__;
 
 has base_url => sub {
   my $self   = shift;
-  my $schema = $self->_validator->schema;
+  my $schema = $self->validator->schema;
 
   return Mojo::URL->new->host($schema->get('/host'))->path($schema->get('/basePath'))
     ->scheme($schema->get('/schemes')->[0] || 'http');
@@ -43,6 +43,8 @@ sub new {
   return $self;
 }
 
+sub validator { Carp::confess('No JSON::Validator::OpenAPI::Mojolicious object available') }
+
 sub _generate_class {
   my ($class, $validator) = @_;
   my $paths = $validator->schema->get('/paths') || {};
@@ -53,7 +55,7 @@ use Mojo::Base '$BASE';
 1;
 HERE
 
-  Mojo::Util::monkey_patch($class, _validator => sub {$validator});
+  Mojo::Util::monkey_patch($class, validator => sub {$validator});
 
   for my $path (keys %$paths) {
     for my $http_method (keys %{$paths->{$path}}) {
@@ -94,7 +96,7 @@ sub _generate_method {
 
 sub _generate_tx {
   my ($self, $http_method, $path_spec, $op_spec, $params, %args) = @_;
-  my $v   = $self->_validator;
+  my $v   = $self->validator;
   my $url = $self->base_url->clone;
   my (%headers, %req, @body, @errors);
 
@@ -272,6 +274,15 @@ same URL will not generate a new class.
 
 Specifying an C<app> is useful when running against a local L<Mojolicious>
 instance.
+
+=head2 validator
+
+  $validator = $self->validator;
+  $validator = $class->validator;
+
+Returns a L<JSON::Validator::OpenAPI::Mojolicious> object for a generated
+class. Not that this is a global variable, so changing the object will affect
+all instances.
 
 =head1 COPYRIGHT AND LICENSE
 

@@ -1,5 +1,9 @@
 Revision history for perl distribution OpenAPI-Client
 
+0.06 Not Released
+ - Add validator() method
+ - Will list available operationIds when no operationId is specified
+
 0.05 2017-08-20T11:18:54+0200
  - Forgot to bump JSON::Validator to 1.01
 

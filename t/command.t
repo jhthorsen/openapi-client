@@ -17,7 +17,8 @@ like $@, qr{APPLICATION openapi SPECIFICATION OPERATION}, 'no arguments';
 
 @said = ();
 $cmd->run(path('t', 'spec.json'));
-like "@said", qr{spec\.json is valid}, 'validated spec from command line';
+like $said[0], qr{Operations for http://localhost/v1}, 'validated spec from command line';
+like $said[1], qr{^listPets$}m, 'validated spec from command line';
 
 @said = ();
 $cmd->run(path('t', 'spec.json'), 'listPets');

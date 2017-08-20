@@ -5,7 +5,8 @@ use Mojolicious;
 use Test::More;
 
 my @said;
-Mojo::Util::monkey_patch('Mojolicious::Command::openapi', _say => sub { push @said, @_ });
+Mojo::Util::monkey_patch('Mojolicious::Command::openapi', _say  => sub { push @said, @_ });
+Mojo::Util::monkey_patch('Mojolicious::Command::openapi', _warn => sub { push @said, @_ });
 
 my $app = Mojolicious->new;
 $app->routes->post(
@@ -20,7 +21,7 @@ $app->plugin('OpenAPI', {url => 'data://main/test.json'});
 
 my $cmd = Mojolicious::Command::openapi->new(app => $app);
 $cmd->run('/v1');
-like "@said", qr{/v1 is valid}, 'validated spec from local app';
+like "@said", qr{addPet}, 'validated spec from local app';
 
 @said = ();
 $cmd->run('/v1', 'addPet', -p => "key=abc", -c => '{"type":"dog"}');

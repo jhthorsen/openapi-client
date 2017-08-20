@@ -5,8 +5,27 @@ use OpenAPI::Client;
 use Mojo::JSON qw(encode_json decode_json j);
 use Mojo::Util qw(encode getopt);
 
+sub _say { length && say encode('UTF-8', $_) for @_ }
+sub _warn { warn @_ }
+
 has description => 'Perform Open API requests';
 has usage => sub { shift->extract_usage . "\n" };
+
+has _client => undef;
+has _ops    => sub {
+  my $client = shift->_client;
+  my $paths = $client->validator->schema->get('/paths') || {};
+  my %ops;
+
+  for my $path (keys %$paths) {
+    for my $http_method (keys %{$paths->{$path}}) {
+      my $op_spec = $paths->{$path}{$http_method};
+      $ops{$op_spec->{operationId}} = $op_spec if $op_spec->{operationId};
+    }
+  }
+
+  return \%ops;
+};
 
 sub run {
   my ($self, @args) = @_;
@@ -33,39 +52,42 @@ sub run {
   }
 
   push @client_args, app => $self->app if $client_args[0] =~ m!^/! and !-e $client_args[0];
-  my $client = OpenAPI::Client->new(@client_args);
-  return _say("$client_args[0] is valid.") unless $op;
-  die qq(Unknown operationId "$op".\n) unless $client->can($op);
+  $self->_client(OpenAPI::Client->new(@client_args));
+  return $self->_list unless $op;
+  die qq(Unknown operationId "$op".\n) unless $self->_client->can($op);
 
-  $client->ua->proxy->detect unless $ENV{OPENAPI_NO_PROXY};
-  $client->ua->$_($ua{$_}) for keys %ua;
-  $client->ua->on(
+  $self->_client->ua->proxy->detect unless $ENV{OPENAPI_NO_PROXY};
+  $self->_client->ua->$_($ua{$_}) for keys %ua;
+  $self->_client->ua->on(
     start => sub {
       my ($ua, $tx) = @_;
       weaken $tx;
-      $tx->res->content->on(body => sub { _warn(_header($tx->req), _header($tx->res)) }) if $verbose;
+      $tx->res->content->on(body => sub { _warn _header($tx->req), _header($tx->res) }) if $verbose;
     }
   );
 
-  my $tx = $client->$op(\%parameters, defined $content ? (body => decode_json $content) : ());
+  my $tx = $self->_client->$op(\%parameters, defined $content ? (body => decode_json $content) : ());
   if ($tx->error and $tx->error->{message} eq 'Invalid input') {
-    _warn(_header($tx->req), _header($tx->res)) if $verbose;
+    _warn _header($tx->req), _header($tx->res) if $verbose;
   }
 
   return _json($tx->res->json, $selector) if !length $selector || $selector =~ m!^/!;
-  return _say($tx->res->dom->find($selector)->each);
+  return _say $tx->res->dom->find($selector)->each;
 }
 
 sub _header { $_[0]->build_start_line, $_[0]->headers->to_string, "\n\n" }
 
 sub _json {
   return unless defined(my $data = Mojo::JSON::Pointer->new(shift)->get(shift));
-  return _say($data) unless ref $data eq 'HASH' || ref $data eq 'ARRAY';
-  _say(encode_json($data));
+  return _say $data unless ref $data eq 'HASH' || ref $data eq 'ARRAY';
+  _say encode_json $data;
 }
 
-sub _say { length && say encode('UTF-8', $_) for @_ }
-sub _warn { warn @_ }
+sub _list {
+  my $self = shift;
+  _warn "--- Operations for @{[$self->_client->base_url]}\n";
+  _say $_ for sort keys %{$self->_ops};
+}
 
 1;
 
