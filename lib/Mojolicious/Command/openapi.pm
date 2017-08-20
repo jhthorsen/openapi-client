@@ -5,6 +5,8 @@ use OpenAPI::Client;
 use Mojo::JSON qw(encode_json decode_json j);
 use Mojo::Util qw(encode getopt);
 
+use constant YAML => eval 'require YAML::XS;1';
+
 sub _say { length && say encode('UTF-8', $_) for @_ }
 sub _warn { warn @_ }
 
@@ -29,10 +31,11 @@ has _ops    => sub {
 
 sub run {
   my ($self, @args) = @_;
-  my %ua;
+  my ($info_about, %ua);
 
   getopt \@args,
     'i|inactivity-timeout=i' => sub { $ua{inactivity_timeout} = $_[1] },
+    'I|information=s'        => \$info_about,
     'o|connect-timeout=i'    => sub { $ua{connect_timeout}    = $_[1] },
     'p|parameter=s'          => \my %parameters,
     'c|content=s'            => \my $content,
@@ -40,7 +43,7 @@ sub run {
     'v|verbose'              => \my $verbose;
 
   my @client_args = (shift @args);
-  my $op          = shift @args;
+  my $op          = $info_about || shift @args;
   my $selector    = shift @args // '';
 
   die $self->usage unless $client_args[0];
@@ -53,6 +56,7 @@ sub run {
 
   push @client_args, app => $self->app if $client_args[0] =~ m!^/! and !-e $client_args[0];
   $self->_client(OpenAPI::Client->new(@client_args));
+  return $self->_info($info_about) if $info_about;
   return $self->_list unless $op;
   die qq(Unknown operationId "$op".\n) unless $self->_client->can($op);
 
@@ -76,6 +80,13 @@ sub run {
 }
 
 sub _header { $_[0]->build_start_line, $_[0]->headers->to_string, "\n\n" }
+
+sub _info {
+  my ($self, $op) = @_;
+  my $op_spec = $self->_ops->{$op};
+  return _warn qq(Could not find the given operationId "$op".\n) unless $op_spec;
+  return _say YAML ? YAML::XS::Dump($op_spec) : Mojo::Util::dumper($op_spec);
+}
 
 sub _json {
   return unless defined(my $data = Mojo::JSON::Pointer->new(shift)->get(shift));

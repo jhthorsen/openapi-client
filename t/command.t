@@ -21,6 +21,14 @@ like $said[0], qr{Operations for http://localhost/v1}, 'validated spec from comm
 like $said[1], qr{^listPets$}m, 'validated spec from command line';
 
 @said = ();
+$cmd->run(path('t', 'spec.json'), -I => 'listPets');
+like "@said", qr{pet response}, 'information about operation';
+
+@said = ();
+$cmd->run(path('t', 'spec.json'), -I => 'unknown');
+like "@said", qr{Could not find}, 'no information about operation';
+
+@said = ();
 $cmd->run(path('t', 'spec.json'), 'listPets');
 like "@said", qr{Missing property}, 'missing property';
 
