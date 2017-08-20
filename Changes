@@ -1,5 +1,8 @@
 Revision history for perl distribution OpenAPI-Client
 
+0.05 Not Released
+ - Forgot to bump JSON::Validator to 1.01
+
 0.04 2017-08-19T23:05:26+0200
  - Fix "mojo openapi" against online resources
 
