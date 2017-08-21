@@ -1,6 +1,6 @@
 Revision history for perl distribution OpenAPI-Client
 
-0.06 Not Released
+0.06 2017-08-21T09:14:23+0200
  - Add validator() method
  - Add "mojo openapi spec.json -I operationId"
  - Will list available operationIds when no operationId is specified
