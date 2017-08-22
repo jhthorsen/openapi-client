@@ -1,5 +1,8 @@
 Revision history for perl distribution OpenAPI-Client
 
+0.07 2017-08-22T21:05:46+0200
+ - Try to make reading from STDIN a bit more robust
+
 0.06 2017-08-21T09:14:23+0200
  - Add validator() method
  - Add "mojo openapi spec.json -I operationId"

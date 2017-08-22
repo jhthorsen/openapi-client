@@ -42,17 +42,15 @@ sub run {
     'S|response-size=i'      => sub { $ua{max_response_size}  = $_[1] },
     'v|verbose'              => \my $verbose;
 
+  # Read body from STDIN
+  vec(my $r, fileno(STDIN), 1) = 1;
+  $content //= !-t STDIN && select($r, undef, undef, 0) ? join '', <STDIN> : undef;
+
   my @client_args = (shift @args);
   my $op          = $info_about || shift @args;
   my $selector    = shift @args // '';
 
   die $self->usage unless $client_args[0];
-
-  if (!-t STDIN) {
-    vec(my $r, fileno(STDIN), 1) = 1;
-    select($r, undef, undef, 0);
-    $content = join '', <STDIN>;
-  }
 
   push @client_args, app => $self->app if $client_args[0] =~ m!^/! and !-e $client_args[0];
   $self->_client(OpenAPI::Client->new(@client_args));
