@@ -43,6 +43,7 @@ $tx = $client->listPets({type => 'dog', p => 12});
 is $tx->res->code, 200, 'sync listPets';
 is $tx->req->url->query->param('p'), 12, 'sync listPets p=12';
 is $i, 1, 'one request';
+like $tx->res->headers->header('Content-Type'), qr{application/json}, 'application/json';
 
 $tx = $client->addPet({type => 'dog', name => 'Pluto', 'x-dummy' => true});
 is_deeply $tx->res->json, {dummy => true, type => 'dog', name => 'Pluto'}, 'sync addPet';

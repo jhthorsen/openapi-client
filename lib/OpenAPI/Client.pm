@@ -3,7 +3,6 @@ use Mojo::Base -base;
 
 use Carp ();
 use JSON::Validator::OpenAPI::Mojolicious;
-use Mojo::JSON 'encode_json';
 use Mojo::UserAgent;
 use Mojo::Util;
 
@@ -20,6 +19,16 @@ has base_url => sub {
 
   return Mojo::URL->new->host($schema->get('/host') || 'localhost')->path($schema->get('/basePath') || '/')
     ->scheme($schemes->[0] || 'http');
+};
+
+has pre_processor => sub {
+  return sub {
+    my ($headers, $req) = @_;
+    return $headers, json => delete $req->{body} if ref $req->{body};
+    return $headers, form => $req->{form}        if defined $req->{form};
+    return $headers, $req->{body} if defined $req->{body};
+    return $headers;
+  };
 };
 
 has ua => sub { Mojo::UserAgent->new };
@@ -133,7 +142,7 @@ sub _generate_tx {
       $req{form}{$name} = $params->{$name};
     }
     elsif ($in eq 'body') {
-      @body = (ref $params->{$name} ? encode_json $params->{$name} : $params->{$name});
+      $req{body} = $params->{$name};
     }
     else {
       warn "[OpenAPI] Unknown 'in' '$in' for parameter '$name'";
@@ -142,13 +151,13 @@ sub _generate_tx {
 
   # Valid input
   warn "[OpenAPI] Input validation for '$url': @{@errors ? \@errors : ['Success']}\n" if DEBUG;
-  return $self->ua->build_tx($http_method, $url, \%headers, %req, @body) unless @errors;
+  return $self->ua->build_tx($http_method, $url, $self->pre_processor->(\%headers, \%req)) unless @errors;
 
   # Invalid input
   my $tx = Mojo::Transaction::HTTP->new;
   $tx->req->url($url);
   $tx->res->headers->content_type('application/json');
-  $tx->res->body(encode_json {errors => \@errors});
+  $tx->res->body(Mojo::JSON::encode_json({errors => \@errors}));
   $tx->res->code(400)->message($tx->res->default_message);
   $tx->res->error({message => 'Invalid input', code => 400});
   return $tx;
@@ -181,8 +190,8 @@ specification, with methods that transform parameters into a HTTP request.
 The generated class will perform input validation, so invalid data won't be
 sent to the server.
 
-Not that this implementation is currently EXPERIMENTAL! Feedback is
-appreciated.
+Not that this implementation is currently EXPERIMENTAL, but unlikely to change!
+Feedback is appreciated.
 
 =head1 SYNOPSIS
 
@@ -244,6 +253,20 @@ the Open API document:
 
 Returns a L<Mojo::URL> object with the base URL to the API. The default value
 comes from C<schemes>, C<basePath> and C<host> in the Open API specification.
+
+=head2 pre_processor
+
+  $code = $self->pre_processor;
+  $self = $self->pre_processor(sub { my ($headers, $req) = @_; ... });
+
+Holds a code ref that can pre-process the request. The return values are passed
+on to L<Mojo::UserAgent/build_tx>. Example:
+
+  $self->pre_processor(sub {
+    my ($headers, $req) = @_;
+    return $headers, "Mohahaha!" if $headers->{mohaha};
+    return $headers, json => {whatever => 42};
+  });
 
 =head2 ua
 
