@@ -8,7 +8,7 @@ use Mojo::Util;
 
 use constant DEBUG => $ENV{MOJO_OPENAPI_DEBUG} || 0;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 my $BASE = __PACKAGE__;
 
