@@ -1,5 +1,8 @@
 Revision history for perl distribution OpenAPI-Client
 
+0.09 Not Released
+ - Add pre_processor() which can be used to manipulate the request
+
 0.08 2017-10-03T11:02:55+0200
  - Improved building default base_url() #1
 

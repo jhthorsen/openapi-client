@@ -264,9 +264,17 @@ on to L<Mojo::UserAgent/build_tx>. Example:
 
   $self->pre_processor(sub {
     my ($headers, $req) = @_;
-    return $headers, "Mohahaha!" if $headers->{mohaha};
     return $headers, json => {whatever => 42};
   });
+
+The code above will result in this:
+
+  $self->ua->build_tx($http_method, $url, $headers, json => {whatever => 42});
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+C<$headers> is a hash-ref containing the request headers and C<$req> is a
+hash-ref that can contain either the key "body" or "form". Note that additional
+parameters might be added to C<$req>, though it is unlikely.
 
 =head2 ua
 
