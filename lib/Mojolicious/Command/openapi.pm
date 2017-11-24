@@ -6,6 +6,7 @@ use Mojo::JSON qw(encode_json decode_json j);
 use Mojo::Util qw(encode getopt);
 
 use constant YAML => eval 'require YAML::XS;1';
+use constant DEBUG => $ENV{MOJO_OPENAPI_DEBUG} || 0;
 
 sub _say { length && say encode('UTF-8', $_) for @_ }
 sub _warn { warn @_ }
@@ -68,6 +69,7 @@ sub run {
     }
   );
 
+  warn "[".__PACKAGE__."] Calling '".ref($self->_client)."::$op' ($content)\n" if DEBUG;
   my $tx = $self->_client->$op(\%parameters, defined $content ? (body => decode_json $content) : ());
   if ($tx->error and $tx->error->{message} eq 'Invalid input') {
     _warn _header($tx->req), _header($tx->res) if $verbose;

@@ -46,6 +46,7 @@ sub new {
   $self->ua->transactor->name('Mojo-OpenAPI (Perl)') unless $self->{ua};
 
   if (my $app = delete $self->{app}) {
+    warn "[$class] Found supplied app\n" if DEBUG;
     $self->base_url->host(undef)->scheme(undef)->port(undef);
     $self->ua->server->app($app);
   }
@@ -86,6 +87,7 @@ sub _generate_method {
 
   return sub {
     my $cb   = ref $_[-1] eq 'CODE' ? pop : undef;
+    warn "[".__PACKAGE__."] Generated method for $http_method $path\n" if DEBUG;
     my $self = shift;
     my $tx   = $self->_generate_tx($http_method, \@path_spec, $op_spec, @_);
 
@@ -94,6 +96,7 @@ sub _generate_method {
       Mojo::IOLoop->next_tick(sub { $self->$cb($tx) });
       return $self;
     }
+    warn "[".__PACKAGE__."] $path no error\n" if DEBUG;
 
     return $self->ua->start($tx) unless $cb;
     return $self->tap(

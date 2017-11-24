@@ -11,6 +11,7 @@ Mojo::Util::monkey_patch('Mojolicious::Command::openapi', _warn => sub { push @s
 my $app = Mojolicious->new;
 $app->routes->post(
   '/pets' => sub {
+    diag 'Test addPet run' if $ENV{MOJO_OPENAPI_DEBUG};
     my $c   = shift;
     my $res = $c->req->json;
     $res->{key} = $c->param('key');
