@@ -284,13 +284,6 @@ Returns a L<Mojo::UserAgent> object which is used to execute requests.
 
 =head1 METHODS
 
-=head2 local_app
-
-  $client = $client->local_app(Mojolicious->new);
-
-This method will modify L</ua> to run requests against the L<Mojolicious> or
-L<Mojolicious::Lite> application given as argument. (Useful for testing)
-
 =head2 new
 
   $client = OpenAPI::Client->new($specification, \%attrs);
