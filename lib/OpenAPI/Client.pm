@@ -6,7 +6,7 @@ use JSON::Validator::OpenAPI::Mojolicious;
 use Mojo::UserAgent;
 use Mojo::Util;
 
-use constant DEBUG => $ENV{MOJO_OPENAPI_DEBUG} || 0;
+use constant DEBUG => $ENV{OPENAPI_CLIENT_DEBUG} || 0;
 
 our $VERSION = '0.09';
 
@@ -74,7 +74,7 @@ HERE
       my $code    = _generate_method(lc $http_method, $path, $op_spec);
 
       $method =~ s![^\w]!_!g;
-      warn "[$class] Add method $class\::$method()\n" if DEBUG;
+      warn "[$class] Add method $method() for $http_method $path\n" if DEBUG;
       Mojo::Util::monkey_patch($class, $method => $code);
     }
   }
@@ -126,7 +126,7 @@ sub _generate_tx {
     }
 
     if (@e) {
-      warn "[OpenAPI] Invalid '$name' in '$in': @e\n" if DEBUG;
+      warn "[@{[ref $self]}] Validation for $url failed: @e\n" if DEBUG;
       push @errors, @e;
     }
     elsif (!exists $params->{$name} or $in eq 'path') {
@@ -145,13 +145,15 @@ sub _generate_tx {
       $req{body} = $params->{$name};
     }
     else {
-      warn "[OpenAPI] Unknown 'in' '$in' for parameter '$name'";
+      warn "[@{[ref $self]}] Unknown 'in' '$in' for parameter '$name'";
     }
   }
 
   # Valid input
-  warn "[OpenAPI] Input validation for '$url': @{@errors ? \@errors : ['Success']}\n" if DEBUG;
-  return $self->ua->build_tx($http_method, $url, $self->pre_processor->(\%headers, \%req)) unless @errors;
+  unless (@errors) {
+    warn "[@{[ref $self]}] Validation for $url was successful.\n" if DEBUG;
+    return $self->ua->build_tx($http_method, $url, $self->pre_processor->(\%headers, \%req));
+  }
 
   # Invalid input
   my $tx = Mojo::Transaction::HTTP->new;
