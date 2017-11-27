@@ -11,6 +11,7 @@ use constant DEBUG => $ENV{OPENAPI_CLIENT_DEBUG} || 0;
 our $VERSION = '0.09';
 
 my $BASE = __PACKAGE__;
+my $X_RE = qr{^x-};
 
 has base_url => sub {
   my $self    = shift;
@@ -68,10 +69,15 @@ HERE
   Mojo::Util::monkey_patch($class, validator => sub {$validator});
 
   for my $path (keys %$paths) {
-    for my $http_method (keys %{$paths->{$path}}) {
-      my $op_spec = $paths->{$path}{$http_method};
-      my $method  = $op_spec->{operationId} or next;
-      my $code    = _generate_method(lc $http_method, $path, $op_spec);
+    next if $path =~ $X_RE;
+    my $path_parameters = $validator->get([paths => $path => 'parameters']) || [];
+
+    for my $http_method (keys %{$validator->get([paths => $path])}) {
+      next if $http_method =~ $X_RE or $http_method eq 'parameters';
+      my $op_spec = $validator->get([paths => $path => $http_method]);
+      my $method = $op_spec->{operationId} or next;
+      my @rules = (@$path_parameters, @{$op_spec->{parameters} || []});
+      my $code = _generate_method(lc $http_method, $path, \@rules);
 
       $method =~ s![^\w]!_!g;
       warn "[$class] Add method $method() for $http_method $path\n" if DEBUG;
@@ -81,13 +87,13 @@ HERE
 }
 
 sub _generate_method {
-  my ($http_method, $path, $op_spec) = @_;
+  my ($http_method, $path, $rules) = @_;
   my @path_spec = grep {length} split '/', $path;
 
   return sub {
     my $cb   = ref $_[-1] eq 'CODE' ? pop : undef;
     my $self = shift;
-    my $tx   = $self->_generate_tx($http_method, \@path_spec, $op_spec, @_);
+    my $tx   = $self->_generate_tx($http_method, \@path_spec, $rules, @_);
 
     if ($tx->error) {
       return $tx unless $cb;
@@ -105,14 +111,14 @@ sub _generate_method {
 }
 
 sub _generate_tx {
-  my ($self, $http_method, $path_spec, $op_spec, $params, %args) = @_;
+  my ($self, $http_method, $path_spec, $rules, $params, %args) = @_;
   my $v   = $self->validator;
   my $url = $self->base_url->clone;
   my (%headers, %req, @body, @errors);
 
   push @{$url->path}, map { local $_ = $_; s,\{(\w+)\},{$params->{$1}//''},ge; $_ } @$path_spec;
 
-  for my $p (@{$op_spec->{parameters} || []}) {
+  for my $p (@$rules) {
     my ($in, $name, $type) = @$p{qw(in name type)};
     my @e;
 

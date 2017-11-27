@@ -67,13 +67,18 @@ __DATA__
   "host": "api.example.com",
   "basePath": "/v1",
   "paths": {
+    "x-whatever": [],
     "/pets": {
+      "x-whatever": [],
+      "parameters": [
+        { "$ref": "#/parameters/name" }
+      ],
       "post": {
+        "x-whatever": [],
         "operationId": "addPet",
         "parameters": [
           { "in": "header", "name": "x-dummy", "type": "boolean" },
-          { "in": "formData", "name": "type", "type": "string" },
-          { "$ref": "#/parameters/name" }
+          { "in": "formData", "name": "type", "type": "string" }
         ],
         "responses": {
           "200": {

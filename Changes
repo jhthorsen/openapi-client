@@ -2,6 +2,7 @@ Rrefsevision history for perl distribution OpenAPI-Client
 
 0.10 Not Released
  - Can resolve $ref in spec
+ - Add support for inheriting "parameters"
 
 0.09 2017-10-04T18:44:23+0200
  - Add pre_processor() which can be used to manipulate the request #2
