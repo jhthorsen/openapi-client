@@ -57,7 +57,7 @@ sub validator { Carp::confess('No JSON::Validator::OpenAPI::Mojolicious object a
 
 sub _generate_class {
   my ($class, $validator) = @_;
-  my $paths = $validator->schema->get('/paths') || {};
+  my $paths = $validator->get('/paths') || {};
 
   eval <<"HERE" or Carp::confess("package $class: $@");
 package $class;
