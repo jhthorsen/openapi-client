@@ -68,7 +68,7 @@ sub run {
     }
   );
 
-  my $tx = $self->_client->$op(\%parameters, defined $content ? (body => decode_json $content) : ());
+  my $tx = $self->_client->$op(\%parameters, $content ? (body => decode_json $content) : ());
   if ($tx->error and $tx->error->{message} eq 'Invalid input') {
     _warn _header($tx->req), _header($tx->res) if $verbose;
   }
