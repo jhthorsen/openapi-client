@@ -1,4 +1,7 @@
-Rrefsevision history for perl distribution OpenAPI-Client
+Revision history for perl distribution OpenAPI-Client
+
+0.11 2017-12-08T14:57:01+0100
+ - Fix openapi command will not try to decode empty strings #5
 
 0.10 2017-11-27T18:01:50+0100
  - Can resolve $ref in spec
