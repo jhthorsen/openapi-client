@@ -5,11 +5,13 @@ use Carp ();
 use JSON::Validator::OpenAPI::Mojolicious;
 use Mojo::UserAgent;
 use Mojo::Util;
+use Exporter qw(import);
 
 use constant DEBUG => $ENV{OPENAPI_CLIENT_DEBUG} || 0;
 
 our $VERSION = '0.12';
 
+our @EXPORT_OK = qw(mangle_name);
 my $BASE = __PACKAGE__;
 my $X_RE = qr{^x-};
 
@@ -79,11 +81,18 @@ HERE
       my @rules = (@$path_parameters, @{$op_spec->{parameters} || []});
       my $code = _generate_method(lc $http_method, $path, \@rules);
 
-      $method =~ s![^\w]!_!g;
+      $method = mangle_name($method);
       warn "[$class] Add method $method() for $http_method $path\n" if DEBUG;
       Mojo::Util::monkey_patch($class, $method => $code);
     }
   }
+}
+
+sub mangle_name {
+  my ($name) = @_;
+  return if !defined $name;
+  $name =~ s![^\w]!_!g;
+  return $name;
 }
 
 sub _generate_method {
@@ -316,6 +325,15 @@ instance.
 Returns a L<JSON::Validator::OpenAPI::Mojolicious> object for a generated
 class. Not that this is a global variable, so changing the object will affect
 all instances.
+
+=head1 FUNCTIONS
+
+=head2 mangle_name
+
+Exportable. Returns C<undef> if given that. Otherwise returns a string
+with only valid Perl subroutine-name characters, replacing others
+with C<_>. Use on C<operationId> from an OpenAPI spec which is allowed
+to have spaces.
 
 =head1 COPYRIGHT AND LICENSE
 

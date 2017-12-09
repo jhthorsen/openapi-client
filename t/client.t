@@ -56,6 +56,8 @@ is $tx->res->code, 400, 'invalid listPets';
 is $tx->error->{message}, 'Invalid input', 'sync invalid message';
 is $i, 0, 'invalid on client side';
 
+is OpenAPI::Client::mangle_name('find pets'), 'find_pets', 'name mangling';
+
 done_testing;
 
 __DATA__
