@@ -3,10 +3,11 @@ use Mojo::Base 'Mojolicious::Command';
 
 use OpenAPI::Client;
 use Mojo::JSON qw(encode_json decode_json j);
-use Mojo::Util qw(encode getopt);
+use Mojo::Util qw(encode decode getopt);
 
 use constant YAML => eval 'require YAML::XS;1';
 
+# since _say encodes, it needs to be called with characters, not octets
 sub _say { length && say encode('UTF-8', $_) for @_ }
 sub _warn { warn @_ }
 
@@ -89,7 +90,7 @@ sub _info {
 sub _json {
   return unless defined(my $data = Mojo::JSON::Pointer->new(shift)->get(shift));
   return _say $data unless ref $data eq 'HASH' || ref $data eq 'ARRAY';
-  _say encode_json $data;
+  _say decode 'UTF-8', encode_json $data;
 }
 
 sub _list {

@@ -2,6 +2,7 @@ use Mojo::Base -strict;
 use Mojo::File 'path';
 use Mojolicious::Command::openapi;
 use Mojolicious;
+use Mojo::Util qw(encode);
 use Test::More;
 
 my @said;
@@ -27,6 +28,14 @@ like "@said", qr{addPet}, 'validated spec from local app';
 $cmd->run('/v1', 'addPet', -p => "key=abc", -c => '{"type":"dog"}');
 like "@said", qr{"key":"abc"},  'addPet with key';
 like "@said", qr{"type":"dog"}, 'addPet with type';
+
+@said = ();
+my $characters = qq[\x{88c5}\x{903c}\x{4e2d}];
+my $encoded = encode("UTF-8", $characters);
+$cmd->run('/v1', 'addPet', -p => "key=abc", -c => qq[{"type":"$encoded"}]);
+like "@said", qr{"key":"abc"},  'addPet with key';
+# characters as _say does encoding itself
+like "@said", qr{"type":"$characters"}, 'addPet with unicode';
 
 done_testing;
 
