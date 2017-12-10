@@ -39,6 +39,7 @@ sub new {
   my $attrs = @_ == 1 ? shift : {@_};
   my $validator = JSON::Validator::OpenAPI::Mojolicious->new;
 
+  $validator->coerce($attrs->{coerce} // 1);
   $validator->ua->server->app($attrs->{app}) if $attrs->{app};
   $class = $class->_url_to_class($specification);
   _generate_class($class, $validator->load_and_validate_schema($specification, $attrs)) unless $class->isa($BASE);
@@ -294,9 +295,8 @@ Returns a L<Mojo::UserAgent> object which is used to execute requests.
 
 =head2 new
 
-  $client = OpenAPI::Client->new($specification, \%attrs);
-  $client = OpenAPI::Client->new($specification, %attrs);
-  $client = OpenAPI::Client->new($specification, app => Mojolicious->new);
+  $client = OpenAPI::Client->new($specification, \%attributes);
+  $client = OpenAPI::Client->new($specification, %attributes);
 
 Returns an object of a generated class, with methods generated from the Open
 API specification located at C<$specification>. See L<JSON::Validator/schema>
@@ -305,8 +305,20 @@ for valid versions of C<$specification>.
 Note that the class is cached by perl, so loading a new specification from the
 same URL will not generate a new class.
 
+Extra C<%attributes>:
+
+=over 2
+
+=item * app
+
 Specifying an C<app> is useful when running against a local L<Mojolicious>
 instance.
+
+=item * coerce
+
+See L<JSON::Validator/coerce>. Default to 1.
+
+=back
 
 =head2 validator
 

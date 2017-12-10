@@ -44,8 +44,9 @@ is $tx->res->code, 200, 'sync listPets';
 is $tx->req->url->query->param('p'), 12, 'sync listPets p=12';
 is $i, 1, 'one request';
 
-$tx = $client->addPet({type => 'dog', name => 'Pluto', 'x-dummy' => true});
-is_deeply $tx->res->json, {dummy => true, type => 'dog', name => 'Pluto'}, 'sync addPet';
+# test coercion: age="5"
+$tx = $client->addPet({age => '5', type => 'dog', name => 'Pluto', 'x-dummy' => true});
+is_deeply $tx->res->json, {age => 5, dummy => true, type => 'dog', name => 'Pluto'}, 'sync addPet';
 
 note 'Async testing';
 $i = 0;
@@ -78,6 +79,7 @@ __DATA__
         "operationId": "addPet",
         "parameters": [
           { "in": "header", "name": "x-dummy", "type": "boolean" },
+          { "in": "formData", "name": "age", "type": "integer" },
           { "in": "formData", "name": "type", "type": "string" }
         ],
         "responses": {

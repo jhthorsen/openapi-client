@@ -1,5 +1,8 @@
 Revision history for perl distribution OpenAPI-Client
 
+0.13 Not Released
+ - Add default coercion to input parameters
+
 0.12 2017-12-09T11:15:28+0100
  - Bumping dependencies
 
