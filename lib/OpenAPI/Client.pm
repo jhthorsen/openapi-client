@@ -34,6 +34,21 @@ has pre_processor => sub {
 
 has ua => sub { Mojo::UserAgent->new };
 
+sub call {
+  my ($self, $op) = (shift, shift);
+  my $code = $self->can($op);
+
+  unless ($code) {
+    my $cb = pop @_;
+    my $tx = _invalid_input(undef, [], 'No such operationId');
+    return $tx unless ref $cb eq 'CODE';
+    Mojo::IOLoop->next_tick(sub { $self->$cb($tx) });
+    return $self;
+  }
+
+  return $self->$code(@_);
+}
+
 sub new {
   my ($class, $specification) = (shift, shift);
   my $attrs = @_ == 1 ? shift : {@_};
@@ -67,7 +82,7 @@ use Mojo::Base '$BASE';
 1;
 HERE
 
-  Mojo::Util::monkey_patch($class, validator => sub {$validator});
+  Mojo::Util::monkey_patch($class => validator => sub {$validator});
 
   for my $path (keys %$paths) {
     next if $path =~ $X_RE;
@@ -79,10 +94,8 @@ HERE
       my $method = $op_spec->{operationId} or next;
       my @rules = (@$path_parameters, @{$op_spec->{parameters} || []});
       my $code = _generate_method(lc $http_method, $path, \@rules);
-
-      $method =~ s![^\w]!_!g;
       warn "[$class] Add method $method() for $http_method $path\n" if DEBUG;
-      Mojo::Util::monkey_patch($class, $method => $code);
+      Mojo::Util::monkey_patch($class => $method => $code);
     }
   }
 }
@@ -156,19 +169,18 @@ sub _generate_tx {
     }
   }
 
-  # Valid input
-  unless (@errors) {
-    warn "[@{[ref $self]}] Validation for $url was successful.\n" if DEBUG;
-    return $self->ua->build_tx($http_method, $url, $self->pre_processor->(\%headers, \%req));
-  }
+  return _invalid_input($url, \@errors, 'Invalid input') if @errors;
+  warn "[@{[ref $self]}] Validation for $url was successful.\n" if DEBUG;
+  return $self->ua->build_tx($http_method, $url, $self->pre_processor->(\%headers, \%req));
+}
 
-  # Invalid input
+sub _invalid_input {
   my $tx = Mojo::Transaction::HTTP->new;
-  $tx->req->url($url);
+  $tx->req->url(shift || Mojo::URL->new);
   $tx->res->headers->content_type('application/json');
-  $tx->res->body(Mojo::JSON::encode_json({errors => \@errors}));
+  $tx->res->body(Mojo::JSON::encode_json({errors => shift}));
   $tx->res->code(400)->message($tx->res->default_message);
-  $tx->res->error({message => 'Invalid input', code => 400});
+  $tx->res->error({message => shift, code => 400});
   return $tx;
 }
 
@@ -192,9 +204,9 @@ OpenAPI::Client - A client for talking to an Open API powered server
 
 =head1 DESCRIPTION
 
-L<OpenAPI::Client> is a class for generating classes that can talk to an Open
-API server. This is done by generating a custom class, based on a Open API
-specification, with methods that transform parameters into a HTTP request.
+L<OpenAPI::Client> can generating classes that can talk to an Open API server.
+This is done by generating a custom class, based on a Open API specification,
+with methods that transform parameters into a HTTP request.
 
 The generated class will perform input validation, so invalid data won't be
 sent to the server.
@@ -292,6 +304,16 @@ parameters might be added to C<$req>, though it is unlikely.
 Returns a L<Mojo::UserAgent> object which is used to execute requests.
 
 =head1 METHODS
+
+=head2 call
+
+  $tx = $self->call($operationId => @args);
+  $self = $self->call($operationId => @args, sub { my ($self, $tx) = @_; });
+
+Used to either call an C<$operationId> that has an "invalid name", such as
+"list pets" instead of "listPets" or to call an C<$operationId> that you are
+unsure is supported yet. C<$tx> will have error set to "No such operationId"
+and code "400".
 
 =head2 new
 
