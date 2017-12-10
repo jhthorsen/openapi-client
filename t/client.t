@@ -53,6 +53,7 @@ is $i, 1, 'one request';
 # test coercion: age="5"
 $tx = $client->addPet({age => '5', type => 'dog', name => 'Pluto', 'x-dummy' => true});
 is_deeply $tx->res->json, {age => 5, dummy => true, type => 'dog', name => 'Pluto'}, 'sync addPet';
+like $tx->res->body, qr/"age":5/, 'coerce numbers to number';
 
 note 'Async testing';
 $i = 0;
