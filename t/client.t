@@ -28,6 +28,12 @@ post '/pets' => sub {
   },
   'addPet';
 
+get '/unicode' => sub {
+  my $c = shift->openapi->valid_input or return;
+  $c->render(openapi => "\x{88c5}\x{903c}\x{4e2d}");
+  },
+  'testUnicode';
+
 plugin OpenAPI => {url => 'data://main/test.json'};
 
 is(OpenAPI::Client->new('data://main/test.json')->base_url, 'http://api.example.com/v1', 'base_url');
@@ -53,6 +59,7 @@ is $i, 1, 'one request';
 # test coercion: age="5"
 $tx = $client->addPet({age => '5', type => 'dog', name => 'Pluto', 'x-dummy' => true});
 is_deeply $tx->res->json, {age => 5, dummy => true, type => 'dog', name => 'Pluto'}, 'sync addPet';
+like $tx->res->body, qr/"age":5/, 'coerce numbers to number';
 
 note 'Async testing';
 $i = 0;
@@ -66,6 +73,12 @@ is $i, 0, 'invalid on client side';
 note 'call()';
 $tx = $client->call('list pets', {page => 2});
 is_deeply $tx->res->json, [{page => 2}], 'call(list pets)';
+
+eval {
+  $tx = $client->call('testUnicode');
+  is_deeply $tx->res->json, "\x{88c5}\x{903c}\x{4e2d}", 'unicode test';
+};
+is $@, '';
 
 $tx = $client->call('nope');
 is_deeply $tx->error->{message}, 'No such operationId', 'call(nope)';
@@ -127,6 +140,17 @@ __DATA__
           "200": {
             "description": "pet response",
             "schema": { "$ref": "#/definitions/ok" }
+          }
+        }
+      }
+    },
+    "/unicode": {
+      "get": {
+        "operationId": "testUnicode",
+        "responses": {
+          "200": {
+            "description": "unicode",
+            "schema": { "type": "string" }
           }
         }
       }
