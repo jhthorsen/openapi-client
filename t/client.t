@@ -50,9 +50,8 @@ is $tx->res->code, 200, 'sync listPets';
 is $tx->req->url->query->param('p'), 12, 'sync listPets p=12';
 is $i, 1, 'one request';
 
-# test coercion: age="5"
 $tx = $client->addPet({age => '5', type => 'dog', name => 'Pluto', 'x-dummy' => true});
-is_deeply $tx->res->json, {age => 5, dummy => true, type => 'dog', name => 'Pluto'}, 'sync addPet';
+is $tx->res->code, 200, 'coercion for "age":"5" works';
 
 note 'Async testing';
 $i = 0;
