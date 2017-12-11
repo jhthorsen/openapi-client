@@ -37,16 +37,8 @@ has ua => sub { Mojo::UserAgent->new };
 sub call {
   my ($self, $op) = (shift, shift);
   my $code = $self->can($op);
-
-  unless ($code) {
-    my $cb = pop @_;
-    my $tx = _invalid_input(undef, [], 'No such operationId');
-    return $tx unless ref $cb eq 'CODE';
-    Mojo::IOLoop->next_tick(sub { $self->$cb($tx) });
-    return $self;
-  }
-
-  return $self->$code(@_);
+  return $self->$code(@_) if $code;
+  Carp::croak('[OpenAPI::Client] No such operationId');
 }
 
 sub new {
@@ -169,18 +161,18 @@ sub _generate_tx {
     }
   }
 
-  return _invalid_input($url, \@errors, 'Invalid input') if @errors;
-  warn "[@{[ref $self]}] Validation for $url was successful.\n" if DEBUG;
-  return $self->ua->build_tx($http_method, $url, $self->pre_processor->(\%headers, \%req));
-}
+  # Valid input
+  unless (@errors) {
+    warn "[@{[ref $self]}] Validation for $url was successful.\n" if DEBUG;
+    return $self->ua->build_tx($http_method, $url, $self->pre_processor->(\%headers, \%req));
+  }
 
-sub _invalid_input {
   my $tx = Mojo::Transaction::HTTP->new;
-  $tx->req->url(shift || Mojo::URL->new);
+  $tx->req->url($url || Mojo::URL->new);
   $tx->res->headers->content_type('application/json');
-  $tx->res->body(Mojo::JSON::encode_json({errors => shift}));
+  $tx->res->body(Mojo::JSON::encode_json({errors => \@errors}));
   $tx->res->code(400)->message($tx->res->default_message);
-  $tx->res->error({message => shift, code => 400});
+  $tx->res->error({message => 'Invalid input', code => 400});
   return $tx;
 }
 

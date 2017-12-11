@@ -66,8 +66,8 @@ note 'call()';
 $tx = $client->call('list pets', {page => 2});
 is_deeply $tx->res->json, [{page => 2}], 'call(list pets)';
 
-$tx = $client->call('nope');
-is_deeply $tx->error->{message}, 'No such operationId', 'call(nope)';
+eval { $tx = $client->call('nope') };
+like $@, qr{No such operationId.*client\.t}, 'call(nope)';
 
 done_testing;
 
