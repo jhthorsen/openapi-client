@@ -203,7 +203,7 @@ with methods that transform parameters into a HTTP request.
 The generated class will perform input validation, so invalid data won't be
 sent to the server.
 
-Not that this implementation is currently EXPERIMENTAL, but unlikely to change!
+Note that this implementation is currently EXPERIMENTAL, but unlikely to change!
 Feedback is appreciated.
 
 =head1 SYNOPSIS
