@@ -89,7 +89,7 @@ sub _info {
 sub _json {
   return unless defined(my $data = Mojo::JSON::Pointer->new(shift)->get(shift));
   return _say $data unless ref $data eq 'HASH' || ref $data eq 'ARRAY';
-  _say encode_json $data;
+  _say Mojo::Util::decode('UTF-8', encode_json $data);
 }
 
 sub _list {
