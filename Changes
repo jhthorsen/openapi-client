@@ -1,6 +1,6 @@
 Revision history for perl distribution OpenAPI-Client
 
-0.13 Not Released
+0.13 2017-12-11T19:04:35+0100
  - Add default coercion to input parameters
  - Add call() for calling "invalid" operationIds names
  - Fix "openapi" client when printing data structures #8

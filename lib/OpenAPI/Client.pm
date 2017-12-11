@@ -8,7 +8,7 @@ use Mojo::Util;
 
 use constant DEBUG => $ENV{OPENAPI_CLIENT_DEBUG} || 0;
 
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 
 my $BASE = __PACKAGE__;
 my $X_RE = qr{^x-};
