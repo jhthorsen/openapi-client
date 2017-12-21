@@ -5,6 +5,7 @@ use Carp ();
 use JSON::Validator::OpenAPI::Mojolicious;
 use Mojo::UserAgent;
 use Mojo::Util;
+use Mojo::Promise;
 
 use constant DEBUG => $ENV{OPENAPI_CLIENT_DEBUG} || 0;
 
@@ -39,6 +40,20 @@ sub call {
   my $code = $self->can($op);
   return $self->$code(@_) if $code;
   Carp::croak('[OpenAPI::Client] No such operationId');
+}
+
+sub call_p {
+  my $self = shift;
+  my $promise = Mojo::Promise->new;
+  $self->call(@_, sub {
+    my ($self, $tx) = @_;
+    my $err = $tx->error;
+    return $promise->reject($err->{message}) if $err && !$err->{code};
+    return $promise->reject('WebSocket handshake failed')
+      if $tx->req->is_handshake && !$tx->is_websocket;
+    $promise->resolve($tx);
+  });
+  $promise;
 }
 
 sub new {
@@ -304,8 +319,16 @@ Returns a L<Mojo::UserAgent> object which is used to execute requests.
 
 Used to either call an C<$operationId> that has an "invalid name", such as
 "list pets" instead of "listPets" or to call an C<$operationId> that you are
-unsure is supported yet. C<$tx> will have error set to "No such operationId"
-and code "400".
+unsure is supported yet. If it is not, an exception will be thrown,
+matching text "No such operationId".
+
+=head2 call_p
+
+  $promise = $self->call_p($operationId => @args);
+  $promise->then(sub { my ($self, $tx) = @_; });
+
+As L</call> above, but instead of returning a C<$tx>, returns a
+L<Mojo::Promise> of that C<$tx>. Obviously, you should not give a callback.
 
 =head2 new
 
