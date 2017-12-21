@@ -304,8 +304,8 @@ Returns a L<Mojo::UserAgent> object which is used to execute requests.
 
 Used to either call an C<$operationId> that has an "invalid name", such as
 "list pets" instead of "listPets" or to call an C<$operationId> that you are
-unsure is supported yet. C<$tx> will have error set to "No such operationId"
-and code "400".
+unsure is supported yet. If it is not, an exception will be thrown,
+matching text "No such operationId".
 
 =head2 new
 
