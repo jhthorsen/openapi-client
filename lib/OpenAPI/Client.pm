@@ -261,14 +261,24 @@ used to generate methods:
 
   # Blocking
   $tx = $client->listPets;
-  die $tx->error->{message} if $tx->error;
-  say $tx->res->json->{pets}[0]{name};
 
   # Non-blocking
   $client = $client->listPets(sub { my ($client, $tx) = @_; });
 
   # With parameters
   $tx = $client->listPets({limit => 10});
+
+See L<Mojo::Transaction> for more information about what you can do with the
+C<$tx> object, but you often just want something like this:
+
+  # Check for errors
+  die $tx->error->{message} if $tx->error;
+
+  # Extract data from the JSON responses
+  say $tx->res->json->{pets}[0]{name};
+
+Check out L<Mojo::Transaction/error>, L<Mojo::Transaction/req> and
+L<Mojo::Transaction/res> for some of the most used methods in that class.
 
 =head2 Customization
 
@@ -332,7 +342,7 @@ L<OpenAPI specification|https://github.com/OAI/OpenAPI-Specification/blob/master
 The first element in C<@args> can be a hash ref, where a key should match a
 named parameter in the L<OpenAPI specification|https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#parameter-object>.
 
-C<$tx> is a L<Mojo::Transaction::HTTP> object.
+C<$tx> is a L<Mojo::Transaction> object.
 
 =head2 call_p
 
