@@ -19,7 +19,7 @@ has base_url => sub {
   my $schema  = $self->validator->schema;
   my $schemes = $schema->get('/schemes') || [];
 
-  return Mojo::URL->new->host($schema->get('/host') || 'localhost')->path($schema->get('/basePath') || '/')
+  return Mojo::URL->new->host_port($schema->get('/host') || 'localhost')->path($schema->get('/basePath') || '/')
     ->scheme($schemes->[0] || 'http');
 };
 
