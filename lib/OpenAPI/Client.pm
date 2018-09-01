@@ -1,5 +1,5 @@
 package OpenAPI::Client;
-use Mojo::Base -base;
+use Mojo::EventEmitter -base;
 
 use Carp ();
 use JSON::Validator::OpenAPI::Mojolicious;
@@ -100,23 +100,23 @@ HERE
     for my $http_method (keys %{$validator->get([paths => $path])}) {
       next if $http_method =~ $X_RE or $http_method eq 'parameters';
       my $op_spec = $validator->get([paths => $path => $http_method]);
-      my $method = $op_spec->{operationId} or next;
+      my $operation_id = $op_spec->{operationId} or next;
       my @rules = (@$path_parameters, @{$op_spec->{parameters} || []});
-      my $code = _generate_method(lc $http_method, $path, \@rules);
-      warn "[$class] Add method $method() for $http_method $path\n" if DEBUG;
-      Mojo::Util::monkey_patch($class => $method => $code);
+      my $code = _generate_method($operation_id, lc $http_method, $path, \@rules);
+      warn "[$class] Add method $operation_id() for $http_method $path\n" if DEBUG;
+      Mojo::Util::monkey_patch($class => $operation_id => $code);
     }
   }
 }
 
 sub _generate_method {
-  my ($http_method, $path, $rules) = @_;
+  my ($operation_id, $http_method, $path, $rules) = @_;
   my @path_spec = grep {length} split '/', $path;
 
   return sub {
     my $cb   = ref $_[-1] eq 'CODE' ? pop : undef;
     my $self = shift;
-    my $tx   = $self->_generate_tx($http_method, \@path_spec, $rules, @_);
+    my $tx   = $self->_build_tx($operation_id, $http_method, \@path_spec, $rules, @_);
 
     if ($tx->error) {
       return $tx unless $cb;
@@ -133,11 +133,11 @@ sub _generate_method {
   };
 }
 
-sub _generate_tx {
-  my ($self, $http_method, $path_spec, $rules, $params, %args) = @_;
+sub _build_tx {
+  my ($self, $operation_id, $http_method, $path_spec, $rules, $params, %args) = @_;
   my $v   = $self->validator;
   my $url = $self->base_url->clone;
-  my (%headers, %req, @errors);
+  my ($tx, %headers, %req, @errors);
 
   push @{$url->path}, map { local $_ = $_; s,\{(\w+)\},{$params->{$1}//''},ge; $_ } @$path_spec;
 
@@ -178,18 +178,24 @@ sub _generate_tx {
     }
   }
 
-  # Valid input
-  unless (@errors) {
+  if (@errors) {
+    warn "[@{[ref $self]}] Validation for $url failed: @errors.\n" if DEBUG;
+    $tx = Mojo::Transaction::HTTP->new;
+    $tx->req->url($url);
+    $tx->res->headers->content_type('application/json');
+    $tx->res->body(Mojo::JSON::encode_json({errors => \@errors}));
+    $tx->res->code(400)->message($tx->res->default_message);
+    $tx->res->error({message => 'Invalid input', code => 400});
+  }
+  else {
     warn "[@{[ref $self]}] Validation for $url was successful.\n" if DEBUG;
-    return $self->ua->build_tx($http_method, $url, $self->pre_processor->(\%headers, \%req));
+    my @tx_args = $self->pre_processor ? $self->pre_processor->(\%headers, \%req) : (\%headers, %req);
+    $tx = $self->ua->build_tx($http_method, $url, @tx_args);
   }
 
-  my $tx = Mojo::Transaction::HTTP->new;
-  $tx->req->url($url || Mojo::URL->new);
-  $tx->res->headers->content_type('application/json');
-  $tx->res->body(Mojo::JSON::encode_json({errors => \@errors}));
-  $tx->res->code(400)->message($tx->res->default_message);
-  $tx->res->error({message => 'Invalid input', code => 400});
+  $tx->req->env->{operationId} = $operation_id;
+  $self->emit(after_build_tx => $tx);
+
   return $tx;
 }
 
@@ -286,6 +292,24 @@ If you want to request a different server than what is specified in
 the Open API document:
 
   $client->base_url->host("other.server.com");
+
+=head1 EVENTS
+
+=head2 after_build_tx
+
+  $self->on(after_build_tx => sub { my ($self, $tx) = @_ })
+
+This event is emitted after a L<Mojo::UserAgent::Transactor> object has been
+built, just before it is passed on to the L</ua>. Note that all validation has
+already been run, so alternating the C<$tx> too much, might cause an invalid
+request on the server side.
+
+A special L<Mojo::Message::Request/env> variable will be set, to reference the
+operationId:
+
+  $tx->req->env->{operationId};
+
+Note that this usage of C<env()> is currently EXPERIMENTAL:
 
 =head1 ATTRIBUTES
 
