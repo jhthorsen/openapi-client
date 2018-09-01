@@ -37,25 +37,14 @@ has ua => sub { Mojo::UserAgent->new };
 
 sub call {
   my ($self, $op) = (shift, shift);
-  my $code = $self->can($op);
-  return $self->$code(@_) if $code;
-  Carp::croak('[OpenAPI::Client] No such operationId');
+  my $code = $self->can($op) or Carp::croak('[OpenAPI::Client] No such operationId');
+  return $self->$code(@_);
 }
 
 sub call_p {
-  my $self    = shift;
-  my $promise = Mojo::Promise->new;
-  $self->call(
-    @_,
-    sub {
-      my ($self, $tx) = @_;
-      my $err = $tx->error;
-      return $promise->reject($err->{message}) if $err && !$err->{code};
-      return $promise->reject('WebSocket handshake failed') if $tx->req->is_handshake && !$tx->is_websocket;
-      $promise->resolve($tx);
-    }
-  );
-  $promise;
+  my ($self, $op) = (shift, shift);
+  my $code = $self->can("${op}_p") or Carp::croak('[OpenAPI::Client] No such operationId');
+  return $self->$code(@_);
 }
 
 sub new {
@@ -102,9 +91,12 @@ HERE
       my $op_spec = $validator->get([paths => $path => $http_method]);
       my $operation_id = $op_spec->{operationId} or next;
       my @rules = (@$path_parameters, @{$op_spec->{parameters} || []});
-      my $code = _generate_method($operation_id, lc $http_method, $path, \@rules);
       warn "[$class] Add method $operation_id() for $http_method $path\n" if DEBUG;
-      Mojo::Util::monkey_patch($class => $operation_id => $code);
+
+      Mojo::Util::monkey_patch(
+        $class => "$operation_id" => _generate_method($operation_id, lc $http_method, $path, \@rules));
+      Mojo::Util::monkey_patch(
+        $class => "${operation_id}_p" => _generate_method_p($operation_id, lc $http_method, $path, \@rules));
     }
   }
 }
@@ -130,6 +122,21 @@ sub _generate_method {
         $self->ua->start($tx, sub { $self->$cb($_[1]) });
       }
     );
+  };
+}
+
+sub _generate_method_p {
+  my ($operation_id, $http_method, $path, $rules) = @_;
+  my @path_spec = grep {length} split '/', $path;
+
+  return sub {
+    my $self = shift;
+    my $tx = $self->_build_tx($operation_id, $http_method, \@path_spec, $rules, @_);
+
+    return $self->ua->start_p($tx) unless my $err = $tx->error;
+    return Mojo::Promise->new->reject($err->{message}) unless $err->{code};
+    return Mojo::Promise->new->reject('WebSocket handshake failed') if $tx->req->is_handshake && !$tx->is_websocket;
+    return Mojo::Promise->new->resolve($tx);
   };
 }
 
@@ -271,6 +278,9 @@ used to generate methods:
   # Non-blocking
   $client = $client->listPets(sub { my ($client, $tx) = @_; });
 
+  # Promises
+  $client = $client->listPets_p->then(sub { my $tx = shift });
+
   # With parameters
   $tx = $client->listPets({limit => 10});
 
@@ -371,10 +381,9 @@ C<$tx> is a L<Mojo::Transaction> object.
 =head2 call_p
 
   $promise = $self->call_p($operationId => @args);
-  $promise->then(sub { my ($self, $tx) = @_; });
+  $promise->then(sub { my $tx = shift });
 
-As L</call> above, but instead of returning a C<$tx>, returns a
-L<Mojo::Promise> of that C<$tx>. Obviously, you should not give a callback.
+As L</call> above, but returns a L<Mojo::Promise> object.
 
 =head2 new
 
