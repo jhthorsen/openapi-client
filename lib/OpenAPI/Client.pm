@@ -4,7 +4,7 @@ use Mojo::EventEmitter -base;
 use Carp ();
 use JSON::Validator::OpenAPI::Mojolicious;
 use Mojo::UserAgent;
-use Mojo::Util;
+use Mojo::Util 'deprecated';
 use Mojo::Promise;
 
 use constant DEBUG => $ENV{OPENAPI_CLIENT_DEBUG} || 0;
@@ -23,15 +23,8 @@ has base_url => sub {
     ->scheme($schemes->[0] || 'http');
 };
 
-has pre_processor => sub {
-  return sub {
-    my ($headers, $req) = @_;
-    return $headers, json => delete $req->{body} if ref $req->{body};
-    return $headers, form => $req->{form}        if defined $req->{form};
-    return $headers, $req->{body} if defined $req->{body};
-    return $headers;
-  };
-};
+# Will be deprecated
+has pre_processor => undef;
 
 has ua => sub { Mojo::UserAgent->new };
 
@@ -88,27 +81,28 @@ HERE
 
     for my $http_method (keys %{$validator->get([paths => $path])}) {
       next if $http_method =~ $X_RE or $http_method eq 'parameters';
-      my $op_spec = $validator->get([paths => $path => $http_method]);
-      my $operation_id = $op_spec->{operationId} or next;
-      my @rules = (@$path_parameters, @{$op_spec->{parameters} || []});
+      my %op_spec = %{$validator->get([paths => $path => $http_method])};
+      my $operation_id = $op_spec{operationId} or next;
+
+      $op_spec{method}     = lc $http_method;
+      $op_spec{parameters} = [@$path_parameters, @{$op_spec{parameters} || []}];
+      $op_spec{path}       = [grep {length} split '/', $path];
+
       warn "[$class] Add method $operation_id() for $http_method $path\n" if DEBUG;
 
-      Mojo::Util::monkey_patch(
-        $class => "$operation_id" => _generate_method($operation_id, lc $http_method, $path, \@rules));
-      Mojo::Util::monkey_patch(
-        $class => "${operation_id}_p" => _generate_method_p($operation_id, lc $http_method, $path, \@rules));
+      $class->_generate_method_bnb($operation_id, \%op_spec);
+      $class->_generate_method_p("${operation_id}_p", \%op_spec);
     }
   }
 }
 
-sub _generate_method {
-  my ($operation_id, $http_method, $path, $rules) = @_;
-  my @path_spec = grep {length} split '/', $path;
+sub _generate_method_bnb {
+  my ($class, $method_name, $op_spec) = @_;
 
-  return sub {
+  Mojo::Util::monkey_patch $class => $method_name => sub {
     my $cb   = ref $_[-1] eq 'CODE' ? pop : undef;
     my $self = shift;
-    my $tx   = $self->_build_tx($operation_id, $http_method, \@path_spec, $rules, @_);
+    my $tx   = $self->_build_tx($op_spec, @_);
 
     if ($tx->error) {
       return $tx unless $cb;
@@ -117,21 +111,17 @@ sub _generate_method {
     }
 
     return $self->ua->start($tx) unless $cb;
-    return $self->tap(
-      sub {
-        $self->ua->start($tx, sub { $self->$cb($_[1]) });
-      }
-    );
+    $self->ua->start($tx, sub { $self->$cb($_[1]) });
+    return $self;
   };
 }
 
 sub _generate_method_p {
-  my ($operation_id, $http_method, $path, $rules) = @_;
-  my @path_spec = grep {length} split '/', $path;
+  my ($class, $method_name, $op_spec) = @_;
 
-  return sub {
+  Mojo::Util::monkey_patch $class => $method_name => sub {
     my $self = shift;
-    my $tx = $self->_build_tx($operation_id, $http_method, \@path_spec, $rules, @_);
+    my $tx = $self->_build_tx($op_spec, @_);
 
     return $self->ua->start_p($tx) unless my $err = $tx->error;
     return Mojo::Promise->new->reject($err->{message}) unless $err->{code};
@@ -141,19 +131,24 @@ sub _generate_method_p {
 }
 
 sub _build_tx {
-  my ($self, $operation_id, $http_method, $path_spec, $rules, $params, %args) = @_;
+  my ($self, $op_spec, $params, %content) = @_;
   my $v   = $self->validator;
   my $url = $self->base_url->clone;
-  my ($tx, %headers, %req, @errors);
+  my ($tx, %headers, @errors);
 
-  push @{$url->path}, map { local $_ = $_; s,\{(\w+)\},{$params->{$1}//''},ge; $_ } @$path_spec;
+  push @{$url->path}, map { local $_ = $_; s,\{(\w+)\},{$params->{$1}//''},ge; $_ } @{$op_spec->{path}};
 
-  for my $p (@$rules) {
+  for my $p (@{$op_spec->{parameters}}) {
     my ($in, $name, $type) = @$p{qw(in name type)};
-    my @e;
+    my ($ct, @e);
 
-    if ($in eq 'body' and exists $args{body}) {
-      $params->{$name} = $args{body};
+    if ($in eq 'body' and !exists $params->{$name}) {
+      for ('body', sort keys %{$self->ua->transactor->generators}) {
+        next if $_ eq 'form' or !exists $content{$_};
+        $ct = $_;
+        $params->{$name} = $content{$ct};
+        last;
+      }
     }
 
     if (exists $params->{$name} or $p->{required}) {
@@ -175,10 +170,17 @@ sub _build_tx {
       $headers{$name} = $params->{$name};
     }
     elsif ($in eq 'formData') {
-      $req{form}{$name} = $params->{$name};
+      $content{form}{$name} = $params->{$name};
     }
     elsif ($in eq 'body') {
-      $req{body} = $params->{$name};
+      $ct ||= 'json';
+      $content{$ct} = $params->{$name};
+
+      # Back compat check
+      if ($ct eq 'body' and ref $content{$ct}) {
+        deprecated 'Maybe you meant to use (.., json => {}) instead of "body"?';
+        $content{json} = delete $content{body},;
+      }
     }
     else {
       warn "[@{[ref $self]}] Unknown 'in' '$in' for parameter '$name'";
@@ -196,11 +198,17 @@ sub _build_tx {
   }
   else {
     warn "[@{[ref $self]}] Validation for $url was successful.\n" if DEBUG;
-    my @tx_args = $self->pre_processor ? $self->pre_processor->(\%headers, \%req) : (\%headers, %req);
-    $tx = $self->ua->build_tx($http_method, $url, @tx_args);
+    if (my $pre_processor = $self->{pre_processor}) {
+      deprecated 'pre_processor is DEPRECATED in favor of...';    # 2018-09-01
+      $tx = $self->ua->build_tx($op_spec->{method}, $url, $pre_processor->(\%headers, \%content));
+    }
+    else {
+      $tx
+        = $self->ua->build_tx($op_spec->{method}, $url, \%headers, defined $content{body} ? $content{body} : %content);
+    }
   }
 
-  $tx->req->env->{operationId} = $operation_id;
+  $tx->req->env->{operationId} = $op_spec->{operationId};
   $self->emit(after_build_tx => $tx);
 
   return $tx;
@@ -296,13 +304,31 @@ C<$tx> object, but you often just want something like this:
 Check out L<Mojo::Transaction/error>, L<Mojo::Transaction/req> and
 L<Mojo::Transaction/res> for some of the most used methods in that class.
 
-=head2 Customization
+=head1 CUSTOMIZATION
+
+=head2 Custom server URL
 
 If you want to request a different server than what is specified in
 the Open API document:
 
   $client->base_url->host("other.server.com");
   $client = OpenAPI::Client->new("file:///path/to/api.json", base_url => "http://example.com");
+
+=head2 Custom content
+
+You can send XML or any format you like, but this require you to add a new
+"generator":
+
+  use Your::XML::Library "to_xml";
+  $client->ua->transactor->add_generators(xml => sub {
+    my ($t, $tx, $data) = @_;
+    $tx->req->body(to_xml $data);
+    return $tx;
+  });
+
+  $client->addHero({}, xml => {name => "Supergirl"});
+
+See L<Mojo::UserAgent::Transactor> for more details.
 
 =head1 EVENTS
 
@@ -333,25 +359,9 @@ comes from C<schemes>, C<basePath> and C<host> in the Open API specification.
 
 =head2 pre_processor
 
-  $code = $self->pre_processor;
-  $self = $self->pre_processor(sub { my ($headers, $req) = @_; ... });
+L</pre_processor> is deprecated.
 
-Holds a code ref that can pre-process the request. The return values are passed
-on to L<Mojo::UserAgent/build_tx>. Example:
-
-  $self->pre_processor(sub {
-    my ($headers, $req) = @_;
-    return $headers, json => {whatever => 42};
-  });
-
-The code above will result in this:
-
-  $self->ua->build_tx($http_method, $url, $headers, json => {whatever => 42});
-                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-C<$headers> is a hash-ref containing the request headers and C<$req> is a
-hash-ref that can contain either the key "body" or "form". Note that additional
-parameters might be added to C<$req>, though it is unlikely.
+Use L</after_build_tx> and L<Mojo::UserAgent::Transactor/generators> instead.
 
 =head2 ua
 
@@ -363,8 +373,8 @@ Returns a L<Mojo::UserAgent> object which is used to execute requests.
 
 =head2 call
 
-  $tx = $self->call($operationId => @args);
-  $self = $self->call($operationId => @args, sub { my ($self, $tx) = @_; });
+  $tx = $self->call($operationId => \%params, %content);
+  $self = $self->call($operationId => \%params, %content, sub { my ($self, $tx) = @_; });
 
 Used to either call an C<$operationId> that has an "invalid name", such as
 "list pets" instead of "listPets" or to call an C<$operationId> that you are
@@ -374,14 +384,20 @@ matching text "No such operationId".
 C<$operationId> is the name of the resource defined in the
 L<OpenAPI specification|https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#operation-object>.
 
-The first element in C<@args> can be a hash ref, where a key should match a
+C<$params> is optional, but must be a hash ref, where the keys should match a
 named parameter in the L<OpenAPI specification|https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#parameter-object>.
+
+C<%content> is used for the body of the request, where the key need to be
+either "body" or a matching L<Mojo::UserAgent::Transactor/generators>. Example:
+
+  $client->addHero({}, body => "Some data");
+  $client->addHero({}, json => {name => "Supergirl"});
 
 C<$tx> is a L<Mojo::Transaction> object.
 
 =head2 call_p
 
-  $promise = $self->call_p($operationId => @args);
+  $promise = $self->call_p($operationId => $params, %content);
   $promise->then(sub { my $tx = shift });
 
 As L</call> above, but returns a L<Mojo::Promise> object.
