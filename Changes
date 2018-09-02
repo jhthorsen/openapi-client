@@ -1,6 +1,6 @@
 Revision history for perl distribution OpenAPI-Client
 
-0.18 Not Released
+0.18 2018-09-02T14:13:51+0200
  - Add "after_build_tx" event
  - Add "opeartionId_p" methods for promise based API
 
