@@ -279,7 +279,7 @@ used to generate methods:
   $client = $client->listPets(sub { my ($client, $tx) = @_; });
 
   # Promises
-  $client = $client->listPets_p->then(sub { my $tx = shift });
+  $promise = $client->listPets_p->then(sub { my $tx = shift });
 
   # With parameters
   $tx = $client->listPets({limit => 10});
@@ -302,6 +302,7 @@ If you want to request a different server than what is specified in
 the Open API document:
 
   $client->base_url->host("other.server.com");
+  $client = OpenAPI::Client->new("file:///path/to/api.json", base_url => "http://example.com");
 
 =head1 EVENTS
 
