@@ -1,5 +1,8 @@
 Revision history for perl distribution OpenAPI-Client
 
+0.19 Not Released
+ - Skip tests when getting "Service Unavailable"
+
 0.18 2018-09-02T14:13:51+0200
  - Add "after_build_tx" event
  - Add "opeartionId_p" methods for promise based API
