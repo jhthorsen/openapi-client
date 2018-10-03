@@ -1,5 +1,8 @@
 Revision history for perl distribution OpenAPI-Client
 
+0.21 Not Released
+ - Fix failing tests after Mojolicious::Plugin::OpenAPI 2.00 #15
+
 0.20 2018-09-30T22:04:20+0900
  - Fix skip tests when getting "Service Unavailable"
 

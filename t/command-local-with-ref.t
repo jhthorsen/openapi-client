@@ -10,8 +10,10 @@ plan skip_all => 'Cannot read spec' unless -r $spec;
 eval {
   my $app = Mojolicious->new;
   my $oc;
-  $app->plugin(OpenAPI => {spec => $spec});
-  $app->plugin(OpenAPI => {spec => path(qw(t spec with-external-ref.json))->to_abs});
+
+  $app->routes->get(sub { my $c = shift }, 'dummy');
+  $app->plugin(OpenAPI => {default_response_codes => [], spec => $spec});
+  $app->plugin(OpenAPI => {default_response_codes => [], spec => path(qw(t spec with-external-ref.json))->to_abs});
 
   $oc = OpenAPI::Client->new('/api', app => $app);
   ok $oc, 'OpenAPI::Client loaded bundled spec' or diag $@;
