@@ -82,7 +82,10 @@ HERE
     for my $http_method (keys %{$validator->get([paths => $path])}) {
       next if $http_method =~ $X_RE or $http_method eq 'parameters';
       my %op_spec = %{$validator->get([paths => $path => $http_method])};
-      my $operation_id = $op_spec{operationId} or next;
+      my $operation_id = $op_spec{operationId} or do {
+        warn "[$class] Skipping because operationId is not set for $http_method $path\n" if DEBUG;
+        next;
+      };
 
       $op_spec{method}     = lc $http_method;
       $op_spec{parameters} = [@$path_parameters, @{$op_spec{parameters} || []}];
