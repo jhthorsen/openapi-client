@@ -5,7 +5,8 @@ use OpenAPI::Client;
 use Mojo::JSON qw(encode_json decode_json j);
 use Mojo::Util qw(encode getopt);
 
-use constant YAML => eval 'require YAML::XS;1';
+use constant YAML    => eval 'require YAML::XS;1';
+use constant REPLACE => $ENV{JSON_VALIDATOR_REPLACE} // 1;
 
 sub _say { length && say encode('UTF-8', $_) for @_ }
 sub _warn { warn @_ }
@@ -16,7 +17,7 @@ has usage       => sub { shift->extract_usage . "\n" };
 has _client => undef;
 has _ops    => sub {
   my $client = shift->_client;
-  my $paths  = $client->validator->schema->get('/paths') || {};
+  my $paths  = $client->validator->bundle({replace => REPLACE})->{paths} || {};
   my %ops;
 
   for my $path (keys %$paths) {
