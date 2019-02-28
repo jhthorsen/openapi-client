@@ -84,6 +84,8 @@ sub _info {
   my ($self, $op) = @_;
   my $op_spec = $self->_ops->{$op};
   return _warn qq(Could not find the given operationId "$op".\n) unless $op_spec;
+
+  local $YAML::XS::Boolean = 'JSON::PP';
   return _say YAML ? YAML::XS::Dump($op_spec) : Mojo::Util::dumper($op_spec);
 }
 

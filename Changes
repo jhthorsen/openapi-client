@@ -2,6 +2,8 @@ Revision history for perl distribution OpenAPI-Client
 
 0.23 Not Released
  - Add documentation for option --information|-I
+ - Fix printing YAML::XS::Boolean as "false" and "true" in dumped
+   documentation
  - Printed documentation has $ref resolved
    Can be turned off with JSON_VALIDATOR_REPLACE=0
 
