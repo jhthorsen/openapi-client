@@ -64,7 +64,11 @@
 ^MYMETA\.
 #!end included /usr/local/Cellar/perl/5.24.1/lib/perl5/5.24.1/ExtUtils/MANIFEST.SKIP
 
+\.github/CONTRIBUTING.md
+\.perltidyrc
+\.ship.conf
 \.swp$
+\.travis.yml
 ^local/
 ^MANIFEST\.SKIP
 ^README\.pod
