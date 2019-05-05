@@ -1,5 +1,8 @@
 Revision history for perl distribution OpenAPI-Client
 
+0.24 Not Released
+ - Fix t/command-local-with-ref.t
+
 0.23 2019-05-05T14:13:14+0700
  - Add documentation for option --information|-I
  - Fix deprecation warning for JSON::Validator->coerce(1) #17
