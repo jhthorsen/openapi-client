@@ -1,6 +1,6 @@
 Revision history for perl distribution OpenAPI-Client
 
-0.23 Not Released
+0.23 2019-05-05T14:13:14+0700
  - Add documentation for option --information|-I
  - Fix deprecation warning for JSON::Validator->coerce(1) #17
  - Fix printing YAML::XS::Boolean as "false" and "true" in dumped
