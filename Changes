@@ -1,6 +1,6 @@
 Revision history for perl distribution OpenAPI-Client
 
-0.24 Not Released
+0.24 2019-05-05T14:36:11+0700
  - Fix t/command-local-with-ref.t
 
 0.23 2019-05-05T14:13:14+0700
