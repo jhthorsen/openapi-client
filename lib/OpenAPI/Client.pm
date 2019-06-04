@@ -320,7 +320,7 @@ You can send XML or any format you like, but this require you to add a new
 "generator":
 
   use Your::XML::Library "to_xml";
-  $client->ua->transactor->add_generators(xml => sub {
+  $client->ua->transactor->add_generator(xml => sub {
     my ($t, $tx, $data) = @_;
     $tx->req->body(to_xml $data);
     return $tx;
