@@ -88,6 +88,15 @@ $promise->wait;
 is_deeply $results[0]->res->json, [{page => 2}], 'call_p(list pets)';
 is_deeply \@errors, [], 'promise not rejected';
 
+note 'call_p() rejecting';
+$promise = $client->call_p('list all pets', {page => 2});
+(@results, @errors) = ();
+$promise->then(sub { @results = @_ }, sub { @errors = @_ });
+$promise->wait;
+is_deeply \@results, [], 'call_p(list all pets) does not exist';
+is_deeply \@errors, ['[OpenAPI::Client] No such operationId'],
+  'promise got rejected';
+
 done_testing;
 
 __DATA__

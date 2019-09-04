@@ -36,7 +36,8 @@ sub call {
 
 sub call_p {
   my ($self, $op) = (shift, shift);
-  my $code = $self->can("${op}_p") or Carp::croak('[OpenAPI::Client] No such operationId');
+  my $code = $self->can("${op}_p") or
+    return Mojo::Promise->reject('[OpenAPI::Client] No such operationId');
   return $self->$code(@_);
 }
 
