@@ -12,7 +12,7 @@ get '/pets/:type' => sub {
   my $c = shift->openapi->valid_input or return;
   $c->render(openapi => [{type => $c->param('type')}]);
   },
-  'listPets';
+  'listPetsByType';
 
 get '/pets' => sub {
   my $c = shift->openapi->valid_input or return;
@@ -21,7 +21,7 @@ get '/pets' => sub {
   'list pets';
 
 post '/pets' => sub {
-  my $c = shift->openapi->valid_input or return;
+  my $c   = shift->openapi->valid_input or return;
   my $res = $c->req->body_params->to_hash;
   $res->{dummy} = true if $c->req->headers->header('x-dummy');
   $c->render(openapi => $res);
@@ -42,14 +42,14 @@ isa_ok($client, 'OpenAPI::Client');
 can_ok($client, 'addPet');
 
 note 'Sync testing';
-$tx = $client->listPets;
-is $tx->res->code, 400, 'sync invalid listPets';
+$tx = $client->listPetsByType;
+is $tx->res->code, 400, 'sync invalid listPetsByType';
 is $tx->error->{message}, 'Invalid input', 'sync invalid message';
 is $i, 0, 'invalid on client side';
 
-$tx = $client->listPets({type => 'dog', p => 12});
-is $tx->res->code, 200, 'sync listPets';
-is $tx->req->url->query->param('p'), 12, 'sync listPets p=12';
+$tx = $client->listPetsByType({type => 'dog', p => 12});
+is $tx->res->code, 200, 'sync listPetsByType';
+is $tx->req->url->query->param('p'), 12, 'sync listPetsByType p=12';
 is $i, 1, 'one request';
 
 $tx = $client->addPet({age => '5', type => 'dog', name => 'Pluto', 'x-dummy' => true});
@@ -57,18 +57,18 @@ is $tx->res->code, 200, 'coercion for "age":"5" works';
 
 note 'Async testing';
 $i = 0;
-is $client->listPets(sub { ($obj, $tx) = @_; Mojo::IOLoop->stop }), $client, 'async request';
+is $client->listPetsByType(sub { ($obj, $tx) = @_; Mojo::IOLoop->stop }), $client, 'async request';
 Mojo::IOLoop->start;
 is $obj, $client, 'got client in callback';
-is $tx->res->code, 400, 'invalid listPets';
+is $tx->res->code, 400, 'invalid listPetsByType';
 is $tx->error->{message}, 'Invalid input', 'sync invalid message';
 is $i, 0, 'invalid on client side';
 
 note 'Promise testing';
-my $p = $client->listPets_p->then(sub { $tx = shift });
+my $p = $client->listPetsByType_p->then(sub { $tx = shift });
 $tx = undef;
 $p->wait;
-is $tx->res->code, 400, 'invalid listPets';
+is $tx->res->code, 400, 'invalid listPetsByType';
 is $tx->error->{message}, 'Invalid input', 'sync invalid message';
 is $i, 0, 'invalid on client side';
 
@@ -94,8 +94,7 @@ $promise = $client->call_p('list all pets', {page => 2});
 $promise->then(sub { @results = @_ }, sub { @errors = @_ });
 $promise->wait;
 is_deeply \@results, [], 'call_p(list all pets) does not exist';
-is_deeply \@errors, ['[OpenAPI::Client] No such operationId'],
-  'promise got rejected';
+is_deeply \@errors, ['[OpenAPI::Client] No such operationId'], 'promise got rejected';
 
 done_testing;
 
@@ -144,7 +143,7 @@ __DATA__
     },
     "/pets/{type}": {
       "get": {
-        "operationId": "listPets",
+        "operationId": "listPetsByType",
         "parameters": [
           { "in": "path", "name": "type", "type": "string", "required": true },
           { "$ref": "#/parameters/p" }
