@@ -96,6 +96,12 @@ $promise->wait;
 is_deeply \@results, [], 'call_p(list all pets) does not exist';
 is_deeply \@errors, ['[OpenAPI::Client] No such operationId'], 'promise got rejected';
 
+note 'boolean';
+my $err;
+$client->listPetsByType_p({type => 'cat', is_cool => true})->then(sub { $tx = shift }, sub { $err = shift })->wait;
+is $tx->res->code, 200, 'accepted is_cool=true';
+is $tx->req->url->query->to_string, 'is_cool=1', 'is_cool in query parameter';
+
 done_testing;
 
 __DATA__
@@ -145,6 +151,7 @@ __DATA__
       "get": {
         "operationId": "listPetsByType",
         "parameters": [
+          { "in": "query", "name": "is_cool", "type": "boolean" },
           { "in": "path", "name": "type", "type": "string", "required": true },
           { "$ref": "#/parameters/p" }
         ],
