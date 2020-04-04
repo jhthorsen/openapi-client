@@ -19,8 +19,19 @@ has base_url => sub {
   my $schema  = $self->validator->schema;
   my $schemes = $schema->get('/schemes') || [];
 
-  return Mojo::URL->new->host_port($schema->get('/host') || 'localhost')->path($schema->get('/basePath') || '/')
-    ->scheme($schemes->[0] || 'http');
+  my $url;
+
+  # Schema loaded is an OpenAPIv3 spec
+  if ($schema->get('/openapi')) {
+    $url = Mojo::URL->new($schema->get('/servers')->[0]{url});
+    $url->host('localhost')->scheme('http') unless $url->host;
+  }
+  else {
+    $url = Mojo::URL->new->host_port($schema->get('/host') || 'localhost')->path($schema->get('/basePath') || '/')
+      ->scheme($schemes->[0] || 'http');
+  }
+
+  return $url;
 };
 
 # Will be deprecated
@@ -185,6 +196,30 @@ sub _build_tx {
     }
     else {
       warn "[@{[ref $self]}] Unknown 'in' '$in' for parameter '$name'";
+    }
+  }
+
+  # Handling requestBody for OpenAPIv3
+  if ($op_spec->{requestBody}) {
+    my $content_key = [keys $op_spec->{requestBody}{content}->%*]->[0];
+    my $ct          = {'application/x-www-form-urlencoded' => 'form', 'application/json' => 'json'}->{$content_key};
+
+    my $properties    = $op_spec->{requestBody}{content}{$content_key}{schema}{properties};
+    my $required_list = $op_spec->{requestBody}{content}{$content_key}{schema}{required} || [];
+
+    for my $name (keys %$properties) {
+      my $schema   = $properties->{$name};
+      my $required = grep { $name eq $_ } $required_list->@*;
+      if (exists $params->{$name} or $required) {
+        my @e = $v->validate($params,
+          {type => 'object', required => $required ? [$name] : [], properties => {$name => $schema}});
+
+        if (@e) {
+          warn "[@{[ref $self]}] Validation for $url failed: @e\n" if DEBUG;
+          push @errors, @e;
+        }
+      }
+      $content{$ct}{$name} = $params->{$name};
     }
   }
 
