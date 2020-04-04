@@ -201,7 +201,7 @@ sub _build_tx {
 
   # Handling requestBody for OpenAPIv3
   if ($op_spec->{requestBody}) {
-    my $content_key = [keys $op_spec->{requestBody}{content}->%*]->[0];
+    my $content_key = [keys %{$op_spec->{requestBody}{content}}]->[0];
     my $ct          = {'application/x-www-form-urlencoded' => 'form', 'application/json' => 'json'}->{$content_key};
 
     my $properties    = $op_spec->{requestBody}{content}{$content_key}{schema}{properties};
@@ -209,7 +209,7 @@ sub _build_tx {
 
     for my $name (keys %$properties) {
       my $schema   = $properties->{$name};
-      my $required = grep { $name eq $_ } $required_list->@*;
+      my $required = grep { $name eq $_ } @{$required_list};
       if (exists $params->{$name} or $required) {
         my @e = $v->validate($params,
           {type => 'object', required => $required ? [$name] : [], properties => {$name => $schema}});
