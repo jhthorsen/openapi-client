@@ -307,6 +307,28 @@ C<host>, C<basePath> and the first item in C<schemes> will be used to construct
 L</base_url>. This can be altered at any time, if you need to send data to a
 custom endpoint.
 
+Working with Open API v3 L</base_url> is taken from the first entry from C<url>
+in C<servers>. Here is an example of a corresponding Open API v3 spec:
+
+  ---
+  openapi: 3.0.0
+  info:
+    version: "0.8"
+    title: Test client spec
+  servers:
+    - url: http://api.example.com:3000/v1
+  paths:
+    /pets:
+      get:
+        operationId: listPets
+        parameters:
+          - in: query
+            name: page
+            schema:
+              type: integer
+        responses:
+          "200": { ... }
+
 =head2 Client
 
 The OpenAPI API specification will be used to generate a sub-class of
@@ -327,6 +349,11 @@ used to generate methods:
 
   # With parameters
   $tx = $client->listPets({limit => 10});
+
+Working with an Open API v3 spec, you need to specify the schema version:
+
+  use OpenAPI::Client;
+  $client = OpenAPI::Client->new("file:///path/to/api.json", schema => 'v3');
 
 See L<Mojo::Transaction> for more information about what you can do with the
 C<$tx> object, but you often just want something like this:
