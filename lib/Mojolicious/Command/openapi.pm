@@ -41,6 +41,7 @@ sub run {
     'p|parameter=s'          => \my %parameters,
     'c|content=s'            => \my $content,
     'S|response-size=i'      => sub { $ua{max_response_size} = $_[1] },
+    's|schema-version=s'     => \my $schema,
     'v|verbose'              => \my $verbose;
 
   # Read body from STDIN
@@ -54,7 +55,7 @@ sub run {
   die $self->usage unless $client_args[0];
 
   push @client_args, app => $self->app if $client_args[0] =~ m!^/! and !-e $client_args[0];
-  $self->_client(OpenAPI::Client->new(@client_args));
+  $self->_client(OpenAPI::Client->new(@client_args, schema => $schema));
   return $self->_info($info_about) if $info_about;
   return $self->_list unless $op;
   die qq(Unknown operationId "$op".\n) unless $self->_client->can($op);
@@ -145,6 +146,8 @@ Mojolicious::Command::openapi - Perform Open API requests
                                          of MOJO_CONNECT_TIMEOUT or 10
     -p, --parameter <name=value>         Specify multiple header, path, or
                                          query parameter
+    -s, --schema-version <schema>        Open API spec version
+                                         defaults to v2
     -S, --response-size <size>           Maximum response size in bytes,
                                          defaults to 2147483648 (2GB)
     -v, --verbose                        Print request and response headers to
