@@ -203,7 +203,7 @@ sub _build_tx {
   # Handling requestBody for OpenAPIv3
   if ($op_spec->{requestBody}) {
     my $content_key = [keys %{$op_spec->{requestBody}{content}}]->[0];
-    my $ct          = {'application/x-www-form-urlencoded' => 'form', 'application/json' => 'json'}->{$content_key};
+    my $ct          = $content_key eq 'application/x-www-form-urlencoded' ? 'form' : 'json';
 
     my $properties    = $op_spec->{requestBody}{content}{$content_key}{schema}{properties};
     my $required_list = $op_spec->{requestBody}{content}{$content_key}{schema}{required} || [];
