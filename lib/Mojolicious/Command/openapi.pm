@@ -41,7 +41,7 @@ sub run {
     'p|parameter=s'          => \my %parameters,
     'c|content=s'            => \my $content,
     'S|response-size=i'      => sub { $ua{max_response_size} = $_[1] },
-    's|schema-version=s'     => \my $schema,
+    's|schema=s'             => \my $schema,
     'v|verbose'              => \my $verbose;
 
   # Read body from STDIN
