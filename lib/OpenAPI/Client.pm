@@ -23,7 +23,8 @@ has base_url => sub {
 
   # Schema loaded is an OpenAPIv3 spec
   if ($schema->get('/openapi')) {
-    $url = Mojo::URL->new($schema->get('/servers')->[0]{url});
+    my $servers = $schema->get('/servers') || [];
+    $url = Mojo::URL->new($servers->[0] ? $servers->[0]{url} : '/');
     $url->host('localhost')->scheme('http') unless $url->host;
   }
   else {

@@ -34,6 +34,23 @@ is(OpenAPI::Client->new('data://main/test.json', schema => 'v3')->base_url,     
 is(OpenAPI::Client->new('data://main/test.json', schema => 'v3')->base_url->host, 'api.example.com',                'base_url host');
 is(OpenAPI::Client->new('data://main/test.json', schema => 'v3')->base_url->port, '3000',                           'base_url port');
 
+note 'servers not defined';
+is(OpenAPI::Client->new('data://main/test_no_servers_defined.json', schema => 'v3')->base_url,
+  'http://localhost/', 'base_url');
+is(OpenAPI::Client->new('data://main/test_no_servers_defined.json', schema => 'v3')->base_url->host,
+  'localhost', 'base_url host');
+is(OpenAPI::Client->new('data://main/test_no_servers_defined.json', schema => 'v3')->base_url->port,
+  undef, 'base_url port');
+
+note 'servers empty array';
+is(OpenAPI::Client->new('data://main/test_no_servers_defined.json', schema => 'v3')->base_url,
+  'http://localhost/', 'base_url');
+is(OpenAPI::Client->new('data://main/test_empty_servers.json', schema => 'v3')->base_url,
+  'http://localhost/', 'base_url');
+is(OpenAPI::Client->new('data://main/test_empty_servers.json', schema => 'v3')->base_url->host,
+  'localhost', 'base_url host');
+is(OpenAPI::Client->new('data://main/test_empty_servers.json', schema => 'v3')->base_url->port, undef, 'base_url port');
+
 my $client = OpenAPI::Client->new('data://main/test.json', app => app, schema => 'v3');
 my ($obj, $tx);
 
@@ -253,6 +270,83 @@ __DATA__
       "ok": {
         "type": "array",
         "items": {}
+      }
+    }
+  }
+}
+
+@@ test_no_servers_defined.json
+{
+  "openapi": "3.0.0",
+  "info": {
+    "version": "0.8",
+    "title": "Test client spec"
+  },
+  "paths": {
+    "/pets": {
+      "get": {
+        "operationId": "list pets",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "pets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+@@ test_empty_servers.json
+{
+  "openapi": "3.0.0",
+  "info": {
+    "version": "0.8",
+    "title": "Test client spec"
+  },
+  "servers": [],
+  "paths": {
+    "/pets": {
+      "get": {
+        "operationId": "list pets",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "pets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {}
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
