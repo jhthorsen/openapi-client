@@ -146,7 +146,7 @@ Mojolicious::Command::openapi - Perform Open API requests
                                          of MOJO_CONNECT_TIMEOUT or 10
     -p, --parameter <name=value>         Specify multiple header, path, or
                                          query parameter
-    -s, --schema-version <schema>        Open API spec version
+    -s, --schema <schema>                Open API spec version
                                          defaults to v2
     -S, --response-size <size>           Maximum response size in bytes,
                                          defaults to 2147483648 (2GB)
