@@ -93,8 +93,50 @@ HERE
 
       $class->_generate_method_bnb($operation_id, \%op_spec);
       $class->_generate_method_p("${operation_id}_p", \%op_spec);
+      $class->_generate_validate_method("openapi_validate_${operation_id}", \%op_spec);
     }
   }
+}
+
+sub _generate_validate_method {
+  my ($class, $method_name, $op_spec) = @_;
+
+  Mojo::Util::monkey_patch $class => $method_name => sub {
+    my $self    = shift;
+    my $params  = shift;
+    my %content = @_;
+
+    my $v   = $self->validator;
+    my $url = $self->base_url->clone;
+
+    my @errors;
+
+    for my $p (@{$op_spec->{parameters}}) {
+      my ($in, $name, $type) = @$p{qw(in name type)};
+      my ($ct, @e);
+
+      if ($in eq 'body' and !exists $params->{$name}) {
+        for ('body', sort keys %{$self->ua->transactor->generators}) {
+          next if $_ eq 'form' or !exists $content{$_};
+          $ct = $_;
+          $params->{$name} = $content{$ct};
+          last;
+        }
+      }
+
+      if (exists $params->{$name} or $p->{required}) {
+        @e = $v->validate($params,
+          {type => 'object', required => $p->{required} ? [$name] : [], properties => {$name => $p->{schema} || $p}});
+      }
+
+      if (@e) {
+        warn "[@{[ref $self]}] Validation for $url failed: @e\n" if DEBUG;
+        push @errors, @e;
+      }
+    }
+
+    return @errors;
+  };
 }
 
 sub _generate_method_bnb {
