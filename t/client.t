@@ -55,6 +55,9 @@ is $i, 1, 'one request';
 $tx = $client->addPet({age => '5', type => 'dog', name => 'Pluto', 'x-dummy' => true});
 is $tx->res->code, 200, 'coercion for "age":"5" works';
 
+$tx = $client->addPet({});
+is $tx->req->method, 'POST', 'correct method on invalid input';
+
 note 'Async testing';
 $i = 0;
 is $client->listPetsByType(sub { ($obj, $tx) = @_; Mojo::IOLoop->stop }), $client, 'async request';
@@ -137,7 +140,7 @@ __DATA__
         "parameters": [
           { "in": "header", "name": "x-dummy", "type": "boolean" },
           { "in": "formData", "name": "age", "type": "integer" },
-          { "in": "formData", "name": "type", "type": "string" }
+          { "in": "formData", "name": "type", "type": "string", "required": true }
         ],
         "responses": {
           "200": {

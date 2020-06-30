@@ -36,8 +36,7 @@ sub call {
 
 sub call_p {
   my ($self, $op) = (shift, shift);
-  my $code = $self->can("${op}_p") or
-    return Mojo::Promise->reject('[OpenAPI::Client] No such operationId');
+  my $code = $self->can("${op}_p") or return Mojo::Promise->reject('[OpenAPI::Client] No such operationId');
   return $self->$code(@_);
 }
 
@@ -191,6 +190,7 @@ sub _build_tx {
   if (@errors) {
     warn "[@{[ref $self]}] Validation for $url failed: @errors.\n" if DEBUG;
     $tx = Mojo::Transaction::HTTP->new;
+    $tx->req->method(uc $op_spec->{method});
     $tx->req->url($url);
     $tx->res->headers->content_type('application/json');
     $tx->res->body(Mojo::JSON::encode_json({errors => \@errors}));
