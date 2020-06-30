@@ -8,6 +8,7 @@ my %WriteMakefileArgs = (
   ABSTRACT_FROM  => 'lib/OpenAPI/Client.pm',
   VERSION_FROM   => 'lib/OpenAPI/Client.pm',
   EXE_FILES      => [qw()],
+  OBJECT         => '',
   BUILD_REQUIRES => {},
   TEST_REQUIRES  => {'Test::More' => '0.88'},
   PREREQ_PM      => {'JSON::Validator' => '3.10', 'Mojolicious::Plugin::OpenAPI' => '2.14'},
