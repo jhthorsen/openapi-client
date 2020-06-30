@@ -54,9 +54,11 @@ is $i, 1, 'one request';
 
 $tx = $client->addPet({age => '5', type => 'dog', name => 'Pluto', 'x-dummy' => true});
 is $tx->res->code, 200, 'coercion for "age":"5" works';
+ok $tx->remote_address, 'server side response';
 
 $tx = $client->addPet({});
 is $tx->req->method, 'POST', 'correct method on invalid input';
+ok !$tx->remote_address, 'client side error';
 
 note 'Async testing';
 $i = 0;
