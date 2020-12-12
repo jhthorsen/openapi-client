@@ -4,14 +4,17 @@ OpenAPI::Client - A client for talking to an Open API powered server
 
 # DESCRIPTION
 
-[OpenAPI::Client](https://metacpan.org/pod/OpenAPI%3A%3AClient) can generating classes that can talk to an Open API server.
-This is done by generating a custom class, based on a Open API specification,
-with methods that transform parameters into a HTTP request.
+[OpenAPI::Client](https://metacpan.org/pod/OpenAPI%3A%3AClient) can generate
+classes that can talk to an Open API server. This is done by generating a
+custom class, based on a Open API specification, with methods that transform
+parameters into a HTTP request.
 
 The generated class will perform input validation, so invalid data won't be
 sent to the server.
 
-Note that this implementation is currently EXPERIMENTAL, but unlikely to change!
+Note that this implementation is currently EXPERIMENTAL, but unlikely to
+change.
+
 Feedback is appreciated.
 
 # SYNOPSIS
