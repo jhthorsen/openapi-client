@@ -53,7 +53,11 @@ sub run {
 
   die $self->usage unless $client_args[0];
 
-  push @client_args, app => $self->app if $client_args[0] =~ m!^/! and !-e $client_args[0];
+  if ($client_args[0] =~ m!^/! and !-e $client_args[0]) {
+    $client_args[0] = Mojo::URL->new($client_args[0]);
+    push @client_args, app => $self->app;
+  }
+
   $self->_client(OpenAPI::Client->new(@client_args));
   return $self->_info($info_about) if $info_about;
   return $self->_list                  unless $op;
