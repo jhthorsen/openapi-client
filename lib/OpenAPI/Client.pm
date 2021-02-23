@@ -9,7 +9,7 @@ use Mojo::Promise;
 
 use constant DEBUG => $ENV{OPENAPI_CLIENT_DEBUG} || 0;
 
-our $VERSION = '0.25';
+our $VERSION = '1.00';
 
 my $BASE = __PACKAGE__;
 
