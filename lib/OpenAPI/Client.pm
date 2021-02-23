@@ -2,7 +2,7 @@ package OpenAPI::Client;
 use Mojo::EventEmitter -base;
 
 use Carp ();
-use JSON::Validator::OpenAPI::Mojolicious;
+use JSON::Validator;
 use Mojo::UserAgent;
 use Mojo::Util 'deprecated';
 use Mojo::Promise;
@@ -16,7 +16,7 @@ my $X_RE = qr{^x-};
 
 has base_url => sub {
   my $self    = shift;
-  my $schema  = $self->validator->schema;
+  my $schema  = $self->validator;
   my $schemes = $schema->get('/schemes') || [];
 
   return Mojo::URL->new->host_port($schema->get('/host') || 'localhost')->path($schema->get('/basePath') || '/')
@@ -42,13 +42,10 @@ sub call_p {
 
 sub new {
   my ($class, $specification) = (shift, shift);
-  my $attrs     = @_ == 1 ? shift : {@_};
-  my $validator = JSON::Validator::OpenAPI::Mojolicious->new;
+  my $attrs = @_ == 1 ? shift : {@_};
 
-  $validator->coerce($attrs->{coerce} // 'booleans,numbers,strings');
-  $validator->ua->server->app($attrs->{app}) if $attrs->{app};
   $class = $class->_url_to_class($specification);
-  _generate_class($class, $validator->load_and_validate_schema($specification, $attrs)) unless $class->isa($BASE);
+  _generate_class($class, $specification, $attrs) unless $class->isa($BASE);
 
   my $self = bless $attrs, $class;
   $self->ua->transactor->name('Mojo-OpenAPI (Perl)') unless $self->{ua};
@@ -61,11 +58,17 @@ sub new {
   return $self;
 }
 
-sub validator { Carp::confess('No JSON::Validator::OpenAPI::Mojolicious object available') }
+sub validator { Carp::confess("validator() is not defined for $_[0]") }
 
 sub _generate_class {
-  my ($class, $validator) = @_;
-  my $paths = $validator->get('/paths') || {};
+  my ($class, $specification, $attrs) = @_;
+
+  my $jv = JSON::Validator->new;
+  $jv->coerce($attrs->{coerce} // 'booleans,numbers,strings');
+  $jv->store->ua->server->app($attrs->{app}) if $attrs->{app};
+
+  my $schema = $jv->schema($specification)->schema;
+  die "Invalid schema: $specification has the following errors:\n", join "\n", @{$schema->errors} if @{$schema->errors};
 
   eval <<"HERE" or Carp::confess("package $class: $@");
 package $class;
@@ -73,15 +76,16 @@ use Mojo::Base '$BASE';
 1;
 HERE
 
-  Mojo::Util::monkey_patch($class => validator => sub {$validator});
+  Mojo::Util::monkey_patch($class => validator => sub {$schema});
 
+  my $paths = $schema->get('/paths') || {};
   for my $path (keys %$paths) {
     next if $path =~ $X_RE;
-    my $path_parameters = $validator->get([paths => $path => 'parameters']) || [];
+    my $path_parameters = $schema->get([paths => $path => 'parameters']) || [];
 
-    for my $http_method (keys %{$validator->get([paths => $path])}) {
+    for my $http_method (keys %{$schema->get([paths => $path])}) {
       next if $http_method =~ $X_RE or $http_method eq 'parameters';
-      my %op_spec      = %{$validator->get([paths => $path => $http_method])};
+      my %op_spec      = %{$schema->get([paths => $path => $http_method])};
       my $operation_id = $op_spec{operationId} or next;
 
       $op_spec{method}     = lc $http_method;
@@ -222,7 +226,7 @@ sub _url_to_class {
   $package =~ s!\W!_!g;
   $package = Mojo::Util::md5_sum($package) if length $package > 110;    # 110 is a bit random, but it cannot be too long
 
-  return sprintf '%s::%s', __PACKAGE__, $package;
+  return "$BASE\::$package";
 }
 
 1;
@@ -435,9 +439,9 @@ See L<JSON::Validator/coerce>. Default to "booleans,numbers,strings".
   $validator = $client->validator;
   $validator = $class->validator;
 
-Returns a L<JSON::Validator::OpenAPI::Mojolicious> object for a generated
-class. Not that this is a global variable, so changing the object will affect
-all instances.
+Returns a L<JSON::Validator::Schema::OpenAPIv2> object for a generated class.
+Not that this is a global variable, so changing the object will affect all
+instances.
 
 =head1 COPYRIGHT AND LICENSE
 
