@@ -74,7 +74,7 @@ HERE
 
   Mojo::Util::monkey_patch($class => validator => sub {$schema});
 
-  for my $route ($schema->routes->each) {
+  for my $route ($schema->can('routes') ? $schema->routes->each : ()) {
     next unless $route->{operation_id};
     warn "[$class] Add method $route->{operation_id}() for $route->{method} $route->{path}\n" if DEBUG;
     $class->_generate_method_bnb($route->{operation_id} => $route);
