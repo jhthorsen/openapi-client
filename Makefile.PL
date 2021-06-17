@@ -11,7 +11,7 @@ my %WriteMakefileArgs = (
   OBJECT         => '',
   BUILD_REQUIRES => {},
   TEST_REQUIRES  => {'Test::More'      => '0.88'},
-  PREREQ_PM      => {'JSON::Validator' => '4.14', 'Mojolicious::Plugin::OpenAPI' => '2.14'},
+  PREREQ_PM      => {'JSON::Validator' => '4.19', 'Mojolicious::Plugin::OpenAPI' => '4.04'},
   META_MERGE     => {
     'dynamic_config' => 0,
     'meta-spec'      => {version => 2},
