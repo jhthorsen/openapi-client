@@ -122,7 +122,7 @@ sub _build_tx {
   my $url = $self->base_url->clone;
   my ($tx, %headers);
 
-  push @{$url->path}, map { local $_ = $_; s,\{(\w+)\},{$params->{$1}//''},ge; $_ } grep {length} split '/',
+  push @{$url->path}, map { local $_ = $_; s,\{([-\w]+)\},{$params->{$1}//''},ge; $_ } grep {length} split '/',
     $route->{path};
 
   my @errors = $self->validator->validate_request(
