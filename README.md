@@ -18,24 +18,21 @@ Feedback is appreciated.
 
 ## Open API specification
 
-The specification given to ["new"](#new) need to point to a valid OpenAPI document,
-in either JSON or YAML format. Example:
+The specification given to ["new"](#new) need to point to a valid OpenAPI document.
+This document can be OpenAPI v2.x or v3.x, and it can be in either JSON or YAML
+format. Example:
 
-    ---
-    swagger: 2.0
-    host: api.example.com
-    basePath: /api
-    schemes: [ "http" ]
+    openapi: 3.0.1
+    info:
+      title: Swagger Petstore
+      version: 1.0.0
+    servers:
+    - url: http://petstore.swagger.io/v1
     paths:
-      /foo:
+      /pets:
         get:
           operationId: listPets
-          parameters:
-          - name: limit
-            in: query
-            type: integer
-          responses:
-            200: { ... }
+          ...
 
 `host`, `basePath` and the first item in `schemes` will be used to construct
 ["base\_url"](#base_url). This can be altered at any time, if you need to send data to a
@@ -195,12 +192,12 @@ Extra `%attributes`:
     $validator = $class->validator;
 
 Returns a [JSON::Validator::Schema::OpenAPIv2](https://metacpan.org/pod/JSON%3A%3AValidator%3A%3ASchema%3A%3AOpenAPIv2) object for a generated class.
-Not that this is a global variable, so changing the object will affect all
-instances.
+Note that this is a global variable, so changing the object will affect all
+instances returned by ["new"](#new).
 
 # COPYRIGHT AND LICENSE
 
-Copyright (C) 2017-2020, Jan Henning Thorsen
+Copyright (C) 2017-2021, Jan Henning Thorsen
 
 This program is free software, you can redistribute it and/or modify it under
 the terms of the Artistic License version 2.0.

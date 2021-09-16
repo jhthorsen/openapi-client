@@ -233,21 +233,17 @@ The specification given to L</new> need to point to a valid OpenAPI document.
 This document can be OpenAPI v2.x or v3.x, and it can be in either JSON or YAML
 format. Example:
 
-  ---
-  swagger: 2.0
-  host: api.example.com
-  basePath: /api
-  schemes: [ "http" ]
+  openapi: 3.0.1
+  info:
+    title: Swagger Petstore
+    version: 1.0.0
+  servers:
+  - url: http://petstore.swagger.io/v1
   paths:
-    /foo:
+    /pets:
       get:
         operationId: listPets
-        parameters:
-        - name: limit
-          in: query
-          type: integer
-        responses:
-          200: { ... }
+        ...
 
 C<host>, C<basePath> and the first item in C<schemes> will be used to construct
 L</base_url>. This can be altered at any time, if you need to send data to a
