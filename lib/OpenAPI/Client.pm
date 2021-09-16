@@ -229,8 +229,9 @@ Feedback is appreciated.
 
 =head2 Open API specification
 
-The specification given to L</new> need to point to a valid OpenAPI document,
-in either JSON or YAML format. Example:
+The specification given to L</new> need to point to a valid OpenAPI document.
+This document can be OpenAPI v2.x or v3.x, and it can be in either JSON or YAML
+format. Example:
 
   ---
   swagger: 2.0
@@ -410,12 +411,12 @@ See L<JSON::Validator/coerce>. Default to "booleans,numbers,strings".
   $validator = $class->validator;
 
 Returns a L<JSON::Validator::Schema::OpenAPIv2> object for a generated class.
-Not that this is a global variable, so changing the object will affect all
-instances.
+Note that this is a global variable, so changing the object will affect all
+instances returned by L</new>.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2017-2020, Jan Henning Thorsen
+Copyright (C) 2017-2021, Jan Henning Thorsen
 
 This program is free software, you can redistribute it and/or modify it under
 the terms of the Artistic License version 2.0.
