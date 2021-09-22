@@ -287,10 +287,11 @@ L<Mojo::Transaction/res> for some of the most used methods in that class.
 =head2 Custom server URL
 
 If you want to request a different server than what is specified in
-the Open API document:
+the Open API document, set the base_url after instantiation with
+a Mojo::URL instance:
 
-  $client->base_url->host("other.server.com");
-  $client = OpenAPI::Client->new("file:///path/to/api.json", base_url => "http://example.com");
+  my $client = OpenAPI::Client->new("file:///path/to/api.json");
+  $client->base_url( Mojo::URL->new("http://other.server.com:3000/openapi") );
 
 =head2 Custom content
 
