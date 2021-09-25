@@ -4,8 +4,8 @@ use Mojo::EventEmitter -base;
 use Carp ();
 use JSON::Validator;
 use Mojo::UserAgent;
-use Mojo::Util 'deprecated';
 use Mojo::Promise;
+use Scalar::Util qw(blessed);
 
 use constant DEBUG => $ENV{OPENAPI_CLIENT_DEBUG} || 0;
 
@@ -43,7 +43,8 @@ sub new {
   $class = $class->_url_to_class($specification);
   _generate_class($class, $specification, $attrs) unless $class->isa($BASE);
 
-  my $self = bless $attrs, $class;
+  my $self = $class->SUPER::new($attrs);
+  $self->base_url(Mojo::URL->new($self->{base_url})) if $self->{base_url} and !blessed $self->{base_url};
   $self->ua->transactor->name('Mojo-OpenAPI (Perl)') unless $self->{ua};
 
   if (my $app = delete $self->{app}) {
@@ -286,12 +287,19 @@ L<Mojo::Transaction/res> for some of the most used methods in that class.
 
 =head2 Custom server URL
 
-If you want to request a different server than what is specified in
-the Open API document, set the base_url after instantiation with
-a Mojo::URL instance:
+If you want to request a different server than what is specified in the Open
+API document, you can change the L</base_url>:
 
-  my $client = OpenAPI::Client->new("file:///path/to/api.json");
-  $client->base_url( Mojo::URL->new("http://other.server.com:3000/openapi") );
+  # Pass on a Mojo::URL object to the constructor
+  $base_url = Mojo::URL->new("http://example.com");
+  $client1 = OpenAPI::Client->new("file:///path/to/api.json", base_url => $base_url);
+
+  # A plain string will be converted to a Mojo::URL object
+  $client2 = OpenAPI::Client->new("file:///path/to/api.json", base_url => "http://example.com");
+
+  # Change the base_url after the client has been created
+  $client3 = OpenAPI::Client->new("file:///path/to/api.json");
+  $client3->base_url->host("other.example.com");
 
 =head2 Custom content
 
@@ -334,7 +342,8 @@ Note that this usage of C<env()> is currently EXPERIMENTAL:
   $base_url = $client->base_url;
 
 Returns a L<Mojo::URL> object with the base URL to the API. The default value
-comes from C<schemes>, C<basePath> and C<host> in the Open API specification.
+comes from C<schemes>, C<basePath> and C<host> in the OpenAPI v2 specification
+or from C<servers> in the OpenAPI v3 specification.
 
 =head2 ua
 
