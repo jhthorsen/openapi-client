@@ -15,20 +15,6 @@ has description => 'Perform Open API requests';
 has usage       => sub { shift->extract_usage . "\n" };
 
 has _client => undef;
-has _ops    => sub {
-  my $client = shift->_client;
-  my $paths  = $client->validator->get('/paths') || {};
-  my %ops;
-
-  for my $path (keys %$paths) {
-    for my $http_method (keys %{$paths->{$path}}) {
-      my $op_spec = $paths->{$path}{$http_method};
-      $ops{$op_spec->{operationId}} = $op_spec if $op_spec->{operationId};
-    }
-  }
-
-  return \%ops;
-};
 
 sub run {
   my ($self, @args) = @_;
@@ -86,9 +72,14 @@ sub _header { $_[0]->build_start_line, $_[0]->headers->to_string, "\n\n" }
 
 sub _info {
   my ($self, $op) = @_;
-  my $op_spec = $self->_ops->{$op};
-  return _warn qq(Could not find the given operationId "$op".\n) unless $op_spec;
 
+  my ($schema, $op_spec) = ($self->_client->validator);
+  for my $route ($schema->routes->each) {
+    next if !$route->{operation_id} or $route->{operation_id} ne $op;
+    $op_spec = $schema->get(['paths', @$route{qw(path method)}]);
+  }
+
+  return _warn qq(Could not find the given operationId "$op".\n) unless $op_spec;
   local $YAML::XS::Boolean = 'JSON::PP';
   return _say YAML ? YAML::XS::Dump($op_spec) : Mojo::Util::dumper($op_spec);
 }
@@ -102,7 +93,7 @@ sub _json {
 sub _list {
   my $self = shift;
   _warn "--- Operations for @{[$self->_client->base_url]}\n";
-  _say $_ for sort keys %{$self->_ops};
+  $_->{operation_id} && _say $_->{operation_id} for $self->_client->validator->routes->each;
 }
 
 1;
