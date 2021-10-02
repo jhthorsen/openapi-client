@@ -75,11 +75,19 @@ Check out ["error" in Mojo::Transaction](https://metacpan.org/pod/Mojo%3A%3ATran
 
 ## Custom server URL
 
-If you want to request a different server than what is specified in
-the Open API document:
+If you want to request a different server than what is specified in the Open
+API document, you can change the ["base\_url"](#base_url):
 
-    $client->base_url->host("other.server.com");
-    $client = OpenAPI::Client->new("file:///path/to/api.json", base_url => "http://example.com");
+    # Pass on a Mojo::URL object to the constructor
+    $base_url = Mojo::URL->new("http://example.com");
+    $client1 = OpenAPI::Client->new("file:///path/to/api.json", base_url => $base_url);
+
+    # A plain string will be converted to a Mojo::URL object
+    $client2 = OpenAPI::Client->new("file:///path/to/api.json", base_url => "http://example.com");
+
+    # Change the base_url after the client has been created
+    $client3 = OpenAPI::Client->new("file:///path/to/api.json");
+    $client3->base_url->host("other.example.com");
 
 ## Custom content
 
@@ -122,7 +130,8 @@ Note that this usage of `env()` is currently EXPERIMENTAL:
     $base_url = $client->base_url;
 
 Returns a [Mojo::URL](https://metacpan.org/pod/Mojo%3A%3AURL) object with the base URL to the API. The default value
-comes from `schemes`, `basePath` and `host` in the Open API specification.
+comes from `schemes`, `basePath` and `host` in the OpenAPI v2 specification
+or from `servers` in the OpenAPI v3 specification.
 
 ## ua
 

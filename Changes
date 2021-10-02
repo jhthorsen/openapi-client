@@ -1,6 +1,6 @@
 Revision history for perl distribution OpenAPI-Client
 
-1.03 Not Released
+1.03 2021-10-02T09:27:11+0900
  - Fix documentation issues regarding "base_url" #33
  - Fix "mojo client ..." with 3.0.x spec
  - Changed -I to also be able to dump the whole spec (bundled)

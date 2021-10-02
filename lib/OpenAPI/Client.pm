@@ -9,7 +9,7 @@ use Scalar::Util qw(blessed);
 
 use constant DEBUG => $ENV{OPENAPI_CLIENT_DEBUG} || 0;
 
-our $VERSION = '1.02';
+our $VERSION = '1.03';
 
 my $BASE = __PACKAGE__;
 
