@@ -18,11 +18,11 @@ has _client => undef;
 
 sub run {
   my ($self, @args) = @_;
-  my ($info_about, %ua);
+  my %ua;
 
   getopt \@args,
     'i|inactivity-timeout=i' => sub { $ua{inactivity_timeout} = $_[1] },
-    'I|information=s'        => \$info_about,
+    'I|information'          => \my $info,
     'o|connect-timeout=i'    => sub { $ua{connect_timeout} = $_[1] },
     'p|parameter=s'          => \my %parameters,
     'c|content=s'            => \my $content,
@@ -34,7 +34,7 @@ sub run {
   $content //= !-t STDIN && select($r, undef, undef, 0) ? join '', <STDIN> : undef;
 
   my @client_args = (shift @args);
-  my $op          = $info_about || shift @args;
+  my $op          = shift @args;
   my $selector    = shift @args // '';
 
   die $self->usage unless $client_args[0];
@@ -45,7 +45,7 @@ sub run {
   }
 
   $self->_client(OpenAPI::Client->new(@client_args));
-  return $self->_info($info_about) if $info_about;
+  return $self->_info($op) if $info;
   return $self->_list                  unless $op;
   die qq(Unknown operationId "$op".\n) unless $self->_client->can($op);
 
@@ -72,6 +72,12 @@ sub _header { $_[0]->build_start_line, $_[0]->headers->to_string, "\n\n" }
 
 sub _info {
   my ($self, $op) = @_;
+  local $YAML::XS::Boolean = 'JSON::PP';
+
+  unless ($op) {
+    my $op_spec = $self->_client->validator->bundle->data;
+    return _say YAML ? YAML::XS::Dump($op_spec) : Mojo::Util::dumper($op_spec);
+  }
 
   my ($schema, $op_spec) = ($self->_client->validator);
   for my $route ($schema->routes->each) {
@@ -111,7 +117,8 @@ Mojolicious::Command::openapi - Perform Open API requests
     # Fetch /api from myapp.pl and list available operationId
     ./myapp.pl openapi /api
 
-    # Fetch specification for an operationId
+    # Dump the whole specification or for an operationId
+    ./myapp.pl openapi /api -I
     ./myapp.pl openapi /api -I addPet
 
     # Run an operation against a local application
@@ -133,9 +140,9 @@ Mojolicious::Command::openapi - Perform Open API requests
     -c, --content <content>              JSON content, with body parameter data
     -i, --inactivity-timeout <seconds>   Inactivity timeout, defaults to the
                                          value of MOJO_INACTIVITY_TIMEOUT or 20
-    -I, --information <operationId>      Dump the specification about a given
-                                         operationId. YAML::XS is preferred if
-                                         available.
+    -I, --information [operationId]      Dump the specification about a given
+                                         operationId or the whole spec.
+                                         YAML::XS is preferred if available.
     -o, --connect-timeout <seconds>      Connect timeout, defaults to the value
                                          of MOJO_CONNECT_TIMEOUT or 10
     -p, --parameter <name=value>         Specify multiple header, path, or
