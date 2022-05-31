@@ -38,8 +38,21 @@ my $client = OpenAPI::Client->new('data://main/test.json', app => app);
 my ($obj, $tx);
 
 is +ref($client), 'OpenAPI::Client::main_test_json', 'generated class';
+
 isa_ok($client, 'OpenAPI::Client');
 can_ok($client, 'addPet');
+
+subtest 'pre-mixing roles' => sub {
+  package TestRole {
+    use Mojo::Base -role;
+    sub frobnicate {}
+  }
+  my $old_client = OpenAPI::Client->new('data://main/test.json');
+  my $new_client = OpenAPI::Client->with_roles('TestRole')->new('data://main/test.json');
+  can_ok($new_client, 'frobnicate');
+  $new_client->new('data://main/test.json');
+  ok(!$old_client->can('frobnicate'), 'does not bleed over');
+};
 
 note 'Sync testing';
 $tx = $client->listPetsByType;

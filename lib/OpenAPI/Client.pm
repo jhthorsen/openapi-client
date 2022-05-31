@@ -11,8 +11,6 @@ use constant DEBUG => $ENV{OPENAPI_CLIENT_DEBUG} || 0;
 
 our $VERSION = '1.03';
 
-my $BASE = __PACKAGE__;
-
 has base_url => sub {
   my $self      = shift;
   my $validator = $self->validator;
@@ -37,11 +35,11 @@ sub call_p {
 }
 
 sub new {
-  my ($class, $specification) = (shift, shift);
+  my ($parent, $specification) = (shift, shift);
   my $attrs = @_ == 1 ? shift : {@_};
 
-  $class = $class->_url_to_class($specification);
-  _generate_class($class, $specification, $attrs) unless $class->isa($BASE);
+  my $class = $parent->_url_to_class($specification);
+  $parent->_generate_class($class, $specification, $attrs) unless $class->isa($parent);
 
   my $self = $class->SUPER::new($attrs);
   $self->base_url(Mojo::URL->new($self->{base_url})) if $self->{base_url} and !blessed $self->{base_url};
@@ -58,7 +56,8 @@ sub new {
 sub validator { Carp::confess("validator() is not defined for $_[0]") }
 
 sub _generate_class {
-  my ($class, $specification, $attrs) = @_;
+  my ($parent, $class, $specification, $attrs) = @_;
+  $parent = ref $parent if ref $parent;
 
   my $jv = JSON::Validator->new;
   $jv->coerce($attrs->{coerce} // 'booleans,numbers,strings');
@@ -69,7 +68,7 @@ sub _generate_class {
 
   eval <<"HERE" or Carp::confess("package $class: $@");
 package $class;
-use Mojo::Base '$BASE';
+use Mojo::Base '$parent';
 1;
 HERE
 
@@ -199,12 +198,13 @@ sub _param_as_array {
 
 sub _url_to_class {
   my ($self, $package) = @_;
+  $self = ref $self if ref $self;
 
   $package =~ s!^\w+?://!!;
   $package =~ s!\W!_!g;
   $package = Mojo::Util::md5_sum($package) if length $package > 110;    # 110 is a bit random, but it cannot be too long
 
-  return "$BASE\::$package";
+  return "$self\::$package";
 }
 
 1;
