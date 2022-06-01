@@ -50,7 +50,6 @@ subtest 'pre-mixing roles' => sub {
   my $old_client = OpenAPI::Client->new('data://main/test.json');
   my $new_client = OpenAPI::Client->with_roles('TestRole')->new('data://main/test.json');
   can_ok($new_client, 'frobnicate');
-  $new_client->new('data://main/test.json');
   ok(!$old_client->can('frobnicate'), 'does not bleed over');
 };
 

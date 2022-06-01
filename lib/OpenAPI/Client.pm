@@ -57,7 +57,6 @@ sub validator { Carp::confess("validator() is not defined for $_[0]") }
 
 sub _generate_class {
   my ($parent, $class, $specification, $attrs) = @_;
-  $parent = ref $parent if ref $parent;
 
   my $jv = JSON::Validator->new;
   $jv->coerce($attrs->{coerce} // 'booleans,numbers,strings');
@@ -198,7 +197,6 @@ sub _param_as_array {
 
 sub _url_to_class {
   my ($self, $package) = @_;
-  $self = ref $self if ref $self;
 
   $package =~ s!^\w+?://!!;
   $package =~ s!\W!_!g;
