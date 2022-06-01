@@ -42,13 +42,13 @@ is +ref($client), 'OpenAPI::Client::main_test_json', 'generated class';
 isa_ok($client, 'OpenAPI::Client');
 can_ok($client, 'addPet');
 
-subtest 'pre-mixing roles' => sub {
-  package TestRole {
-    use Mojo::Base -role;
+subtest 'subclassing' => sub {
+  package OpenAPI::Child {
+    use Mojo::Base 'OpenAPI::Client';
     sub frobnicate {}
   }
   my $old_client = OpenAPI::Client->new('data://main/test.json');
-  my $new_client = OpenAPI::Client->with_roles('TestRole')->new('data://main/test.json');
+  my $new_client = OpenAPI::Child->new('data://main/test.json');
   can_ok($new_client, 'frobnicate');
   ok(!$old_client->can('frobnicate'), 'does not bleed over');
 };
