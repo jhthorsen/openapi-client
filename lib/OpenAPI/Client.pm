@@ -9,7 +9,7 @@ use Scalar::Util qw(blessed);
 
 use constant DEBUG => $ENV{OPENAPI_CLIENT_DEBUG} || 0;
 
-our $VERSION = '1.04';
+our $VERSION = '1.05';
 
 has base_url => sub {
   my $self      = shift;

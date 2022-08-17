@@ -3,23 +3,15 @@ use utf8;
 use ExtUtils::MakeMaker;
 my %WriteMakefileArgs = (
   NAME           => 'OpenAPI::Client',
-  AUTHOR         => 'Veesh Goldman <rabbiveesh@gmail.com>',
+  AUTHOR         => 'Jan Henning Thorsen <jan.henning@thorsen.pm>',
   LICENSE        => 'artistic_2',
   ABSTRACT_FROM  => 'lib/OpenAPI/Client.pm',
   VERSION_FROM   => 'lib/OpenAPI/Client.pm',
   EXE_FILES      => [qw()],
   OBJECT         => '',
-  BUILD_REQUIRES => {}
-,
-  TEST_REQUIRES  => {
-  'Test::More' => '0.88'
-}
-,
-  PREREQ_PM      => {
-  'JSON::Validator' => '4.25',
-  'Mojolicious::Plugin::OpenAPI' => '4.06'
-}
-,
+  BUILD_REQUIRES => {},
+  TEST_REQUIRES  => {'Test::More'      => '0.88'},
+  PREREQ_PM      => {'JSON::Validator' => '5.09', 'Mojolicious::Plugin::OpenAPI' => '5.05'},
   META_MERGE     => {
     'dynamic_config' => 0,
     'meta-spec'      => {version => 2},
@@ -32,11 +24,7 @@ my %WriteMakefileArgs = (
         web  => 'https://github.com/jhthorsen/openapi-client',
       },
     },
-    'x_contributors' => [
-  'Jan Henning Thorsen <jhthorsen@cpan.org>',
-  'Ed J <etj@cpan.org>'
-]
-,
+    'x_contributors' => ['Jan Henning Thorsen <jhthorsen@cpan.org>', 'Ed J <etj@cpan.org>'],
   },
   test => {TESTS => (-e 'META.yml' ? 't/*.t' : 't/*.t xt/*.t')},
 );
