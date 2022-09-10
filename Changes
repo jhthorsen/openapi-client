@@ -1,5 +1,10 @@
 Revision history for perl distribution OpenAPI-Client
 
+1.06 Not Released
+ - Specified Perl version
+ - Updated basic repository files
+ - Updated contributors list
+
 1.05 2022-08-17T09:19:00+0900
  - Add support for "collectionFormat" for query params #38
 
