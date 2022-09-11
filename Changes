@@ -1,6 +1,7 @@
 Revision history for perl distribution OpenAPI-Client
 
 1.06 Not Released
+ - Fix "Use of uninitialized value" warning
  - Specified Perl version
  - Updated basic repository files
  - Updated contributors list

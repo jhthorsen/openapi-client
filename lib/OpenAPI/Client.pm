@@ -192,7 +192,7 @@ sub _build_tx {
 
 sub _coerce_collection_format {
   my ($value, $param) = @_;
-  my $format = $param->{collectionFormat} || ($param->{type} eq 'array' ? 'csv' : '');
+  my $format = $param->{collectionFormat} || (+($param->{type} // '') eq 'array' ? 'csv' : '');
   return $value if !$format or $format eq 'multi';
   return join "|",  @$value if $format eq 'pipes';
   return join " ",  @$value if $format eq 'ssv';
