@@ -213,6 +213,17 @@ the terms of the Artistic License version 2.0.
 
 # AUTHORS
 
+## Project Founder
+
 Jan Henning Thorsen - `jhthorsen@cpan.org`
 
-Ed J - `etj@cpan.org`
+## Contributors
+
+- Clive Holloway <clhollow@estee.com>
+- Ed J <mohawk2@users.noreply.github.com>
+- Jan Henning Thorsen <jan.henning@thorsen.pm>
+- Jan Henning Thorsen <jhthorsen@cpan.org>
+- Mohammad S Anwar <mohammad.anwar@yahoo.com>
+- Reneeb <info@perl-services.de>
+- Roy Storey <kiwiroy@users.noreply.github.com>
+- Veesh Goldman <rabbiveesh@gmail.com>

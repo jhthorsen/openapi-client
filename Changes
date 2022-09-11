@@ -1,6 +1,6 @@
 Revision history for perl distribution OpenAPI-Client
 
-1.06 Not Released
+1.06 2022-09-11T09:05:17
  - Fix "Use of uninitialized value" warning
  - Specified Perl version
  - Updated basic repository files
