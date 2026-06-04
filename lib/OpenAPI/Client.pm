@@ -75,10 +75,18 @@ HERE
   return unless $schema->can('routes');    # In case it is not an OpenAPI spec
 
   for my $route ($schema->routes->each) {
-    next unless $route->{operation_id};
-    warn "[$class] Add method $route->{operation_id}() for $route->{method} $route->{path}\n" if DEBUG;
-    $class->_generate_method_bnb($route->{operation_id} => $route);
-    $class->_generate_method_p("$route->{operation_id}_p" => $route);
+    my $operation_id = $route->{operation_id};
+
+    unless ( $route->{operation_id} ) {
+      $operation_id = join '_', $route->{method}, $route->{path};
+      $operation_id =~ s|\{[^}]+\}|_|g;
+      $operation_id =~ s|[/-]|_|g;
+      $operation_id =~ s|__+|_|g;
+    }
+
+    warn "[$class] Add method $operation_id() for $route->{method} $route->{path}\n" if DEBUG;
+    $class->_generate_method_bnb($operation_id => $route);
+    $class->_generate_method_p("${operation_id}_p" => $route);
   }
 }
 
